@@ -4,10 +4,10 @@ const ASSETS = [
   './index.html',
   './manifest.json',
   './icon.png',
-  './sons/erro_digital.mp3',
-  './sons/click_tec.mp3',
-  './sons/sucesso.mp3',
-  './sons/trash.mp3'
+  './erro_digital.mp3',
+  './click_tec.mp3',
+  './sucesso.mp3',
+  './trash.mp3'
 ];
 
 // Instalação: Cache de todos os arquivos (App + Sons)
