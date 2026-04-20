@@ -240,10 +240,10 @@
         <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
         
         <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn btn-blue" style="flex: 1.5;" onclick="copyToWhatsapp()">📋 Copiar</button>
-            <button id="btnSalvarExcel" class="btn" style="flex: 1.5; background-color: #10b981;" onclick="salvarNoExcel()">📊 Salvar</button>
-            <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
-        </div>
+    <button class="btn btn-blue" style="flex: 2;" onclick="copyToWhatsapp()">📋 Copiar</button>
+    <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
+</div>
+
     </div>
 
     <div class="card" id="portsContainer">
@@ -287,15 +287,24 @@
     }
 
     function copyToWhatsapp() {
-        const text = document.getElementById('previewArea').innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            sfxSucesso.play().catch(e => {}); 
-            const btn = document.querySelector('.btn-blue');
-            const originalText = btn.innerText;
-            btn.innerText = '✅ Copiado!';
-            setTimeout(() => btn.innerText = originalText, 2000);
-        });
-    }
+    const text = document.getElementById('previewArea').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        // Toca som de sucesso
+        sfxSucesso.play().catch(e => {}); 
+        
+        // Efeito visual no botão de copiar
+        const btn = document.querySelector('.btn-blue');
+        const originalText = btn.innerText;
+        btn.innerText = '✅ Copiado!';
+        setTimeout(() => btn.innerText = originalText, 2000);
+
+        // DISPARO OCULTO PARA O EXCEL:
+        if (typeof salvarEmBackground === 'function') {
+            salvarEmBackground();
+        }
+    });
+}
+
     
     function clearAll() {
         if(confirm('Limpar toda a CTO?')) {
