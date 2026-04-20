@@ -1,5 +1,37 @@
 // Substitua o link abaixo pela sua URL do SheetDB
+const // Substitua o link abaixo pela sua URL do SheetDB
 const SHEETDB_URL = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
+
+async function salvarEmBackground() {
+    const cto = document.getElementById('ctoName').value || 'CTO SEM NOME';
+    const resumo = document.getElementById('previewArea').innerText;
+
+    const payload = {
+        data: [
+            {
+                "DATA": new Date().toLocaleString('pt-BR'),
+                "CTO": cto,
+                "RESUMO": resumo
+            }
+        ]
+    };
+
+    try {
+        // Envia para o Excel (Fire and Forget - Dispara e esquece)
+        await fetch(SHEETDB_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        // Mensagem apenas para você ver se abrir o painel de desenvolvedor
+        console.log("Histórico oculto atualizado com sucesso!");
+    } catch (error) {
+        // Se der erro (ex: sem internet), o usuário não fica sabendo
+        console.error("Erro no background save:", error);
+    }
+}
+= 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
 
 async function salvarNoExcel() {
     // 1. Pega os valores da tela
