@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inativos-v2-sons'; // Mudei a versão para forçar atualização
+const CACHE_NAME = 'inativos-v2-sons';
 const ASSETS = [
   './',
   './index.html',
@@ -10,17 +10,15 @@ const ASSETS = [
   './trash.mp3'
 ];
 
-// Instalação: Cache de todos os arquivos (App + Sons)
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS);
     })
   );
-  self.skipWaiting(); // Força o SW a ativar imediatamente
+  self.skipWaiting();
 });
 
-// Ativação: Limpa caches antigos para não ocupar espaço
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keyList) => {
@@ -36,8 +34,17 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Busca: Tenta Cache primeiro, depois Rede (Rápido e Offline)
+// Busca: Lógica inteligente
 self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+
+  // SE for uma requisição para a API do Excel (SheetDB), vai direto para a rede
+  if (url.hostname.includes('sheetdb.io')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Para o restante (arquivos do app), usa o Cache primeiro
   e.respondWith(
     caches.match(e.request).then((response) => {
       return response || fetch(e.request);
