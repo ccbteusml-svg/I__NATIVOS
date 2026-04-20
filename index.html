@@ -242,9 +242,13 @@
         <label>Identificação da CTO</label>
         <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
         <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn btn-blue" style="flex: 2;" onclick="copyToWhatsapp()">📋 Copiar</button>
-            <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
-        </div>
+    <button class="btn btn-blue" style="flex: 1.5;" onclick="copyToWhatsapp()">📋 Copiar</button>
+    <button class="btn" style="flex: 1.5; background-color: #10b981;" onclick="salvarNoExcel()">📊 Salvar</button>
+    <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
+</div>
+
+<script src="script.js"></script>
+
     </div>
 
     <div class="card" id="portsContainer">
