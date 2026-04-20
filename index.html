@@ -11,7 +11,6 @@
 
     <style>
         :root {
-            /* Cores padrão (Modo Escuro) */
             --primary: #2563eb;
             --danger: #dc2626;
             --warning: #f59e0b;
@@ -25,15 +24,14 @@
             --btn-mini-text: #ffffff;
         }
 
-        /* Sobrescrita para Modo Claro (Dia) */
         body.light-mode {
-            --dark-bg: #f0f2f5;      /* Fundo cinza bem claro */
-            --card-bg: #ffffff;      /* Cartões brancos */
-            --text-main: #1f2937;    /* Texto escuro */
-            --border: #d1d5db;       /* Bordas cinza claro */
-            --input-bg: #f9fafb;     /* Input claro */
-            --input-text: #111827;   /* Texto do input preto */
-            --btn-mini-bg: #e5e7eb;  /* Botões mini mais claros */
+            --dark-bg: #f0f2f5;      
+            --card-bg: #ffffff;      
+            --text-main: #1f2937;    
+            --border: #d1d5db;       
+            --input-bg: #f9fafb;     
+            --input-text: #111827;   
+            --btn-mini-bg: #e5e7eb;  
             --btn-mini-text: #374151;
         }
 
@@ -179,7 +177,6 @@
             line-height: 1.4;
         }
 
-        /* --- ESTILOS DE VALIDAÇÃO --- */
         .input-error {
             border-color: var(--danger) !important;
             background-color: rgba(220, 38, 38, 0.15) !important;
@@ -241,18 +238,16 @@
     <div class="card">
         <label>Identificação da CTO</label>
         <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
+        
         <div style="display: flex; gap: 10px; margin-top: 15px;">
-    <button class="btn btn-blue" style="flex: 1.5;" onclick="copyToWhatsapp()">📋 Copiar</button>
-    <button class="btn" style="flex: 1.5; background-color: #10b981;" onclick="salvarNoExcel()">📊 Salvar</button>
-    <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
-</div>
-
-<script src="script.js"></script>
-
+            <button class="btn btn-blue" style="flex: 1.5;" onclick="copyToWhatsapp()">📋 Copiar</button>
+            <button id="btnSalvarExcel" class="btn" style="flex: 1.5; background-color: #10b981;" onclick="salvarNoExcel()">📊 Salvar</button>
+            <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
+        </div>
     </div>
 
     <div class="card" id="portsContainer">
-        </div>
+    </div>
 
     <div class="card">
         <label>Prévia para Envio</label>
@@ -263,8 +258,6 @@
 <div id="toast">⚠️ Código de cliente duplicado!</div>
 
 <script>
-    // --- SONS (SFX) ---
-    // Certifique-se de criar a pasta 'sons' e colocar os arquivos lá
     const sfxErro = new Audio('erro_digital.mp3');   
     const sfxClick = new Audio('click_tec.mp3');     
     const sfxSucesso = new Audio('sucesso.mp3');     
@@ -272,29 +265,22 @@
 
     sfxErro.volume = 0.5;
     sfxClick.volume = 0.3;
-
-    // --- FUNÇÕES COM SOM (ATUALIZADAS) ---
     
     function showToast(show) {
         const toast = document.getElementById("toast");
         if (show) {
             toast.className = "show";
             if (navigator.vibrate) navigator.vibrate(200); 
-            
-            // Toca o som de erro/glitch
             sfxErro.currentTime = 0; 
             sfxErro.play().catch(e => console.log("Erro ao tocar som:", e)); 
-            
         } else {
             toast.className = toast.className.replace("show", "");
         }
     }
 
     function setQuickAction(index, text) {
-        // Toca o click mecânico
         sfxClick.currentTime = 0; 
         sfxClick.play().catch(e => {});          
-        
         const input = document.getElementById(`input-${index}`);
         input.value = text;
         updateData(index, text);
@@ -303,9 +289,7 @@
     function copyToWhatsapp() {
         const text = document.getElementById('previewArea').innerText;
         navigator.clipboard.writeText(text).then(() => {
-            // Toca som de sucesso
             sfxSucesso.play().catch(e => {}); 
-            
             const btn = document.querySelector('.btn-blue');
             const originalText = btn.innerText;
             btn.innerText = '✅ Copiado!';
@@ -313,11 +297,9 @@
         });
     }
     
-    // Inclui som na limpeza também
     function clearAll() {
         if(confirm('Limpar toda a CTO?')) {
-            sfxLixo.play().catch(e => {}); // Som de lixo/limpeza
-            
+            sfxLixo.play().catch(e => {}); 
             document.getElementById('ctoName').value = '';
             portsData.fill('');
             renderPorts();
@@ -327,8 +309,6 @@
             checkDuplicates(); 
         }
     }
-
-    // --- LÓGICA PRINCIPAL DO APP ---
 
     const totalPorts = 16;
     let portsData = new Array(totalPorts).fill('');
@@ -469,5 +449,8 @@
         navigator.serviceWorker.register('sw.js').catch(() => {});
     }
 </script>
+
+<script src="script.js"></script>
+
 </body>
 </html>
