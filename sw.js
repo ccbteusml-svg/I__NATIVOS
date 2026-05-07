@@ -1,53 +1,64 @@
-const CACHE_NAME = 'inativos-v2-sons';
-const ASSETS = [
+const NOME_DO_CACHE = '4l-academy-v7'; 
+
+const ARQUIVOS_PARA_SALVAR = [
   './',
   './index.html',
+  './cadastro.html',
+  './painel.html',
+  './admin.html',
+  './style.css',
+  './app.js',
+  './cadastro.js',
+  './painel.js',
+  './admin.js',
   './manifest.json',
-  './icon.png',
-  './erro_digital.mp3',
-  './click_tec.mp3',
-  './sucesso.mp3',
-  './trash.mp3'
+  './4L.png',
+  './fundo-aluno.png'
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+// 1. INSTALAÇÃO: O navegador baixa e salva os arquivos da lista acima
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(NOME_DO_CACHE)
+      .then(cache => {
+        console.log('[Service Worker] Salvando arquivos no cache local...');
+        return cache.addAll(ARQUIVOS_PARA_SALVAR);
+      })
+      .then(() => self.skipWaiting()) // Força a instalação imediata
   );
-  self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keyList) => {
+// 2. ATIVAÇÃO (A FAXINA): Limpa os caches antigos se você mudou o "NOME_DO_CACHE"
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(nomesDosCaches => {
       return Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
+        nomesDosCaches.map(cacheAntigo => {
+          if (cacheAntigo !== NOME_DO_CACHE) {
+            console.log('[Service Worker] Apagando cache antigo:', cacheAntigo);
+            return caches.delete(cacheAntigo);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // Assume o controle da tela imediatamente
   );
-  self.clients.claim();
 });
 
-// Busca: Lógica inteligente
-self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-
-  // SE for uma requisição para a API do Excel (SheetDB), vai direto para a rede
-  if (url.hostname.includes('sheetdb.io')) {
-    e.respondWith(fetch(e.request));
-    return;
+// 3. INTERCEPTAÇÃO: Tenta pegar da rede, se estiver sem internet, pega do cache
+self.addEventListener('fetch', event => {
+  // Ignora requisições para o Supabase, ImgBB, Mercado Pago (não podemos fazer cache de banco de dados/API)
+  if (event.request.url.includes('supabase.co') || 
+      event.request.url.includes('mercadopago.com') ||
+      event.request.url.includes('imgbb.com') || 
+      event.request.url.includes('ui-avatars.com')) {
+      return; 
   }
 
-  // Para o restante (arquivos do app), usa o Cache primeiro
-  e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => {
+        // Se a internet falhar (fetch deu erro), ele busca o arquivo salvo no cache
+        return caches.match(event.request);
+      })
   );
 });

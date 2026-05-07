@@ -3,463 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>I__NATIVOS Gerenciador</title>
-    
+    <title>4L Academy - Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#111827">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/751/751463.png">
-
-    <style>
-        :root {
-            --primary: #2563eb;
-            --danger: #dc2626;
-            --warning: #f59e0b;
-            --dark-bg: #111827; 
-            --card-bg: #1f2937;
-            --text-main: #f3f4f6;
-            --border: #374151;
-            --input-bg: #374151;
-            --input-text: #ffffff;
-            --btn-mini-bg: #4b5563;
-            --btn-mini-text: #ffffff;
-        }
-
-        body.light-mode {
-            --dark-bg: #f0f2f5;      
-            --card-bg: #ffffff;      
-            --text-main: #1f2937;    
-            --border: #d1d5db;       
-            --input-bg: #f9fafb;     
-            --input-text: #111827;   
-            --btn-mini-bg: #e5e7eb;  
-            --btn-mini-text: #374151;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--dark-bg);
-            margin: 0;
-            padding: 10px;
-            color: var(--text-main);
-            padding-bottom: 80px; 
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .container { max-width: 600px; margin: 0 auto; }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 10px;
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status-badge {
-            background-color: #064e3b;
-            color: #4ade80;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .status-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; }
-
-        .theme-btn {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-bottom: 16px;
-            border: 1px solid var(--border);
-            transition: background-color 0.3s, border-color 0.3s;
-        }
-
-        label { display: block; font-weight: 600; margin-bottom: 8px; color: #9ca3af; }
-
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 1rem;
-            background: var(--input-bg);
-            color: var(--input-text);
-            box-sizing: border-box;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            transition: opacity 0.2s;
-        }
-        .btn:active { opacity: 0.7; }
-        .btn-blue { background-color: var(--primary); }
-        .btn-red { background-color: var(--danger); }
-
-        .port-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .port-label { font-weight: bold; color: var(--primary); width: 40px; }
-        .port-input-wrapper { flex: 1; }
-
-        .action-buttons { display: flex; gap: 5px; }
-
-        .mini-btn {
-            width: 40px;
-            height: 40px;
-            border: 1px solid var(--border);
-            background: var(--btn-mini-bg);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: var(--btn-mini-text);
-            font-size: 1.2rem;
-            transition: background-color 0.3s;
-        }
-
-        .active-warning { background-color: var(--warning) !important; color: #fff !important; }
-        .active-danger { background-color: var(--danger) !important; color: #fff !important; }
-        .active-info { background-color: #6b7280 !important; color: #fff !important; }
-
-        .preview-box {
-            background-color: #0f172a;
-            border: 1px solid var(--primary);
-            border-radius: 8px;
-            padding: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            white-space: pre-wrap;
-            color: #60a5fa;
-            line-height: 1.4;
-        }
-
-        .input-error {
-            border-color: var(--danger) !important;
-            background-color: rgba(220, 38, 38, 0.15) !important;
-            color: var(--danger) !important;
-            font-weight: bold;
-            animation: shake 0.3s;
-        }
-
-        @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            50% { transform: translateX(5px); }
-            75% { transform: translateX(-5px); }
-            100% { transform: translateX(0); }
-        }
-
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: var(--danger);
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1000;
-            left: 50%;
-            bottom: 30px;
-            transform: translateX(-50%);
-            font-size: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            opacity: 0;
-            transition: opacity 0.3s, bottom 0.3s;
-        }
-
-        #toast.show {
-            visibility: visible;
-            opacity: 1;
-            bottom: 50px;
-        }
-    </style>
+    <meta name="theme-color" content="#000000">
+    
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
-<div class="container">
-    <header>
-        <div>
-            <h1 style="margin:0; font-size:1.4rem; color:var(--primary);">I__NATIVOS</h1>
-            <small style="color:#9ca3af;">Controle de CTO / Fibra</small>
-        </div>
-        <div class="header-controls">
-            <button class="theme-btn" id="themeToggle" onclick="toggleTheme()">☀️</button>
-            <div class="status-badge" id="onlineStatus">
-                <div class="status-dot"></div> On
+    <div class="banner-topo"></div>
+
+    <div class="login-container">
+        <h1 style="font-style: italic;">4L <span style="color: #E53935;">ACADEMY</span></h1>
+        <p class="subtitulo" style="font-size: 11px;">Jiu-Jitsu</p>
+        
+        <form id="form-login">
+            
+            <p style="margin-top: 20px; font-size: 13px; color: #aaaaaa;">
+                Não tem uma conta? <a href="cadastro.html" style="color: var(--cor-destaque); text-decoration: none; font-weight: bold;">Cadastre-se aqui</a>
+            </p>
+
+            <input type="email" id="email" placeholder="Seu E-mail" required>
+            <input type="password" id="senha" placeholder="Sua Senha" required>
+            <button type="submit">Entrar</button>
+            <p id="msg-erro" style="color: #E53935; margin-top: 15px; font-size: 14px; font-weight: bold; height: 20px;"></p>
+            <p id="btn-esqueci-senha" style="margin-top: 15px; font-size: 13px; color: var(--cor-destaque); cursor: pointer; font-weight: bold;">
+                Esqueci minha senha
+            </p>
+            
+            <div class="social-footer">
+                <p class="social-title">Nossas Redes Sociais e Contato</p>
+                
+                <div class="social-icons">
+                    <a href="https://www.instagram.com/4l_teamjj?igsh=MTZqZWF3eXB5YjBrNw%3D%3D&utm_source=qr" target="_blank" class="icon-metal">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://wa.me/5592985589868" target="_blank" class="icon-metal">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                    <a href="https://wa.me/5592993507377" target="_blank" class="icon-metal">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                </div>
+
+                <div class="social-info">
+                    <div class="info-row">
+                        <i class="fab fa-instagram" style="color: #ccc;"></i> <span>@4l_teamjj</span>
+                    </div>
+                    <div class="info-row">
+                        <i class="fab fa-whatsapp" style="color: #25D366;"></i> <span>92 98558-9868 - Luane</span>
+                    </div>
+                    <div class="info-row">
+                        <i class="fab fa-whatsapp" style="color: #25D366;"></i> <span>92 99350-7377 - Luan</span>
+                    </div>
+                </div>
             </div>
-        </div>
-    </header>
 
-    <div class="card">
-        <label>Identificação da CTO</label>
-        <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
-        
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-    <button class="btn btn-blue" style="flex: 2;" onclick="copyToWhatsapp()">📋 Copiar</button>
-    <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
-</div>
-
+        </form>
     </div>
 
-    <div class="card" id="portsContainer">
-    </div>
-
-    <div class="card">
-        <label>Prévia para Envio</label>
-        <div class="preview-box" id="previewArea">Aguardando dados...</div>
-    </div>
-</div>
-
-<div id="toast">⚠️ Código de cliente duplicado!</div>
-
-<script>
-    const sfxErro = new Audio('erro_digital.mp3');   
-    const sfxClick = new Audio('click_tec.mp3');     
-    const sfxSucesso = new Audio('sucesso.mp3');     
-    const sfxLixo = new Audio('trash.mp3');          
-
-    sfxErro.volume = 0.5;
-    sfxClick.volume = 0.3;
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    function showToast(show) {
-        const toast = document.getElementById("toast");
-        if (show) {
-            toast.className = "show";
-            if (navigator.vibrate) navigator.vibrate(200); 
-            sfxErro.currentTime = 0; 
-            sfxErro.play().catch(e => console.log("Erro ao tocar som:", e)); 
-        } else {
-            toast.className = toast.className.replace("show", "");
-        }
-    }
-
-    function setQuickAction(index, text) {
-        sfxClick.currentTime = 0; 
-        sfxClick.play().catch(e => {});          
-        const input = document.getElementById(`input-${index}`);
-        input.value = text;
-        updateData(index, text);
-    }
-
-    function copyToWhatsapp() {
-    const text = document.getElementById('previewArea').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        // Toca som de sucesso
-        sfxSucesso.play().catch(e => {}); 
-        
-        // Efeito visual no botão de copiar
-        const btn = document.querySelector('.btn-blue');
-        const originalText = btn.innerText;
-        btn.innerText = '✅ Copiado!';
-        setTimeout(() => btn.innerText = originalText, 2000);
-
-        // DISPARO OCULTO PARA O EXCEL:
-        if (typeof salvarEmBackground === 'function') {
-            salvarEmBackground();
-        }
-    });
-}
-
+    <script src="supabase-config.js"></script>
     
-    function clearAll() {
-        if(confirm('Limpar toda a CTO?')) {
-            sfxLixo.play().catch(e => {}); 
-            document.getElementById('ctoName').value = '';
-            portsData.fill('');
-            renderPorts();
-            updatePreview();
-            localStorage.removeItem('imais_cto');
-            localStorage.removeItem('imais_ports');
-            checkDuplicates(); 
-        }
-    }
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    const totalPorts = 16;
-    let portsData = new Array(totalPorts).fill('');
-
-    document.addEventListener('DOMContentLoaded', () => {
-        renderPorts();
-        loadSavedData();
-        checkConnection();
-        loadTheme();
-    });
-
-    function toggleTheme() {
-        document.body.classList.toggle('light-mode');
-        const isLight = document.body.classList.contains('light-mode');
-        document.getElementById('themeToggle').innerText = isLight ? '🌙' : '☀️';
-        localStorage.setItem('imais_theme', isLight ? 'light' : 'dark');
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', isLight ? '#f0f2f5' : '#111827');
-    }
-
-    function loadTheme() {
-        const savedTheme = localStorage.getItem('imais_theme');
-        const themeBtn = document.getElementById('themeToggle');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light-mode');
-            themeBtn.innerText = '🌙';
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f0f2f5');
-        } else {
-            themeBtn.innerText = '☀️';
-        }
-    }
-
-    function renderPorts() {
-        const container = document.getElementById('portsContainer');
-        let html = '';
-        for (let i = 1; i <= totalPorts; i++) {
-            html += `
-            <div class="port-row">
-                <span class="port-label">P${i}</span>
-                <div class="port-input-wrapper">
-                    <input type="text" id="input-${i}" oninput="updateData(${i}, this.value)" placeholder="PE">
-                </div>
-                <div class="action-buttons">
-                    <button class="mini-btn" id="btn-u-${i}" onclick="setQuickAction(${i}, 'Sem ident.')">?</button>
-                    <button class="mini-btn" id="btn-d-${i}" onclick="setQuickAction(${i}, 'Defeito')">!</button>
-                    <button class="mini-btn" id="btn-e-${i}" onclick="setQuickAction(${i}, 'Livre')">∞</button>
-                </div>
-            </div>`;
-        }
-        container.innerHTML = html;
-    }
-
-    function updateData(index, value) {
-        portsData[index - 1] = value;
-        updatePreview();
-        updateButtonStyles(index, value);
-        saveData();
-        checkDuplicates();
-    }
-
-    function checkDuplicates() {
-        const ignoredValues = ['', 'Livre', 'Defeito', 'Sem ident.', 'Reserva', 'Vago'];
-        const valueMap = {}; 
-        let hasDuplicate = false;
-
-        for (let i = 1; i <= totalPorts; i++) {
-            const input = document.getElementById(`input-${i}`);
-            if (input) input.classList.remove('input-error');
-        }
-
-        portsData.forEach((val, index) => {
-            const cleanVal = val.trim();
-            if (cleanVal && !ignoredValues.includes(cleanVal)) {
-                if (!valueMap[cleanVal]) {
-                    valueMap[cleanVal] = [];
-                }
-                valueMap[cleanVal].push(index + 1);
-            }
-        });
-
-        Object.keys(valueMap).forEach(key => {
-            const positions = valueMap[key];
-            if (positions.length > 1) { 
-                hasDuplicate = true;
-                positions.forEach(portNum => {
-                    const input = document.getElementById(`input-${portNum}`);
-                    if (input) input.classList.add('input-error');
-                });
-            }
-        });
-
-        showToast(hasDuplicate);
-    }
-
-    function updateButtonStyles(index, value) {
-        document.getElementById(`btn-u-${index}`).className = 'mini-btn' + (value === 'Sem ident.' ? ' active-warning' : '');
-        document.getElementById(`btn-d-${index}`).className = 'mini-btn' + (value === 'Defeito' ? ' active-danger' : '');
-        document.getElementById(`btn-e-${index}`).className = 'mini-btn' + (value === 'Livre' ? ' active-info' : '');
-    }
-
-    function updatePreview() {
-        const cto = document.getElementById('ctoName').value || 'CTO SEM NOME';
-        let text = `📌 *${cto}*\n\n`;
-        portsData.forEach((val, i) => {
-            text += `P${i+1} ➔ ${val || '---'}\n`;
-        });
-        document.getElementById('previewArea').innerText = text;
-    }
-
-    function saveData() {
-        localStorage.setItem('imais_cto', document.getElementById('ctoName').value);
-        localStorage.setItem('imais_ports', JSON.stringify(portsData));
-    }
-
-    function loadSavedData() {
-        const cto = localStorage.getItem('imais_cto');
-        const ports = JSON.parse(localStorage.getItem('imais_ports'));
-        if(cto) document.getElementById('ctoName').value = cto;
-        if(ports) {
-            portsData = ports;
-            ports.forEach((val, i) => {
-                const input = document.getElementById(`input-${i+1}`);
-                if(input) {
-                    input.value = val;
-                    updateButtonStyles(i+1, val);
-                }
-            });
-            checkDuplicates(); 
-        }
-        updatePreview();
-    }
-
-    function checkConnection() {
-        window.addEventListener('online', () => document.getElementById('onlineStatus').style.opacity = '1');
-        window.addEventListener('offline', () => document.getElementById('onlineStatus').style.opacity = '0.3');
-    }
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
-</script>
-
-<script src="script.js"></script>
-
+    <script src="app.js"></script>
 </body>
 </html>
