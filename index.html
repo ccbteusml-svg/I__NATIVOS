@@ -217,6 +217,19 @@
             opacity: 1;
             bottom: 50px;
         }
+                /* Animação para porta inativa (piscar em vermelho e destacar) */
+        @keyframes piscar-remocao {
+            0% { background-color: #dc2626; transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            50% { background-color: #7f1d1d; transform: scale(1.05); box-shadow: 0 0 15px 5px rgba(220, 38, 38, 0.9); border-color: #fff; }
+            100% { background-color: #dc2626; transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
+        .status-remover {
+            animation: piscar-remocao 1s infinite !important;
+            color: white !important;
+            font-size: 1.5rem !important;
+        }
+
     </style>
 </head>
 <body>
@@ -228,6 +241,7 @@
             <small style="color:#9ca3af;">Controle de CTO / Fibra</small>
         </div>
         <div class="header-controls">
+
             <button class="theme-btn" id="themeToggle" onclick="toggleTheme()">☀️</button>
             <div class="status-badge" id="onlineStatus">
                 <div class="status-dot"></div> On
@@ -249,10 +263,32 @@
     <div class="card" id="portsContainer">
     </div>
 
-    <div class="card">
-        <label>Prévia para Envio</label>
-        <div class="preview-box" id="previewArea">Aguardando dados...</div>
+       <div class="card">
+        <label>Visualização Dinâmica da CTO</label>
+        
+        <div id="cto-visualizer" style="margin-top: 10px;">
+            <div id="ctoDrawing" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px;">
+                </div>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.8rem; justify-content: center; border-top: 1px solid var(--border); padding-top: 10px;">
+                <span><b style="color: #4ade80;">●</b> Livre</span>
+                <span><b style="color: #dc2626;">●</b> Defeito</span>
+                <span><b style="color: #f59e0b;">●</b> Sem ident.</span>
+                <span><b style="color: #2563eb;">●</b> Ocupada</span>
+            </div>
+        </div>
+
+        <div class="preview-box" id="previewArea" style="display: none;">Aguardando dados...</div>
     </div>
+    <div class="card">
+        <label>Análise de Retorno da Central</label>
+        <textarea id="textoRetorno" rows="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--input-text); margin-bottom: 10px; font-family: inherit;" placeholder="Cole aqui a mensagem da Jayne, Kelvin, Franciane..."></textarea>
+        
+        <button class="btn btn-red" onclick="analisarRetorno()" style="background-color: #991b1b;">
+            🔍 Analisar Inativos
+        </button>
+    </div>
+
 </div>
 
 <div id="toast">⚠️ Código de cliente duplicado!</div>
@@ -287,7 +323,7 @@
     }
 
     function copyToWhatsapp() {
-    const text = document.getElementById('previewArea').innerText;
+    const text = document.getElementById('previewArea').textContent;
     navigator.clipboard.writeText(text).then(() => {
         // Toca som de sucesso
         sfxSucesso.play().catch(e => {}); 
@@ -306,10 +342,11 @@
 }
 
     
-    function clearAll() {
+        function clearAll() {
         if(confirm('Limpar toda a CTO?')) {
             sfxLixo.play().catch(e => {}); 
             document.getElementById('ctoName').value = '';
+            document.getElementById('textoRetorno').value = ''; // <--- ADICIONE ESTA LINHA!
             portsData.fill('');
             renderPorts();
             updatePreview();
@@ -417,14 +454,112 @@
         document.getElementById(`btn-e-${index}`).className = 'mini-btn' + (value === 'Livre' ? ' active-info' : '');
     }
 
-    function updatePreview() {
+        function updatePreview() {
+        // 1. Atualiza o texto invisível para o botão de Copiar funcionar
         const cto = document.getElementById('ctoName').value || 'CTO SEM NOME';
         let text = `📌 *${cto}*\n\n`;
+        
+        // 2. Prepara a variável que vai segurar os quadradinhos
+        let quadradosHtml = '';
+
         portsData.forEach((val, i) => {
+            // Continua montando o texto para o Zap
             text += `P${i+1} ➔ ${val || '---'}\n`;
+
+            // 3. Lógica das Cores
+            let corFundo = 'var(--input-bg)'; // Cor de fundo padrão (Vazia)
+            let corTexto = 'var(--text-main)'; // Cor do texto padrão
+            
+            if (val === 'Livre') {
+                corFundo = '#4ade80'; // Verde
+                corTexto = '#000000'; // Texto preto para dar contraste
+            } else if (val === 'Defeito') {
+                corFundo = '#dc2626'; // Vermelho
+                corTexto = '#ffffff'; // Texto branco
+            } else if (val === 'Sem ident.') {
+                corFundo = '#f59e0b'; // Amarelo
+                corTexto = '#000000'; // Texto preto
+            } else if (val !== '') {
+                // Se tiver qualquer outro texto (ex: nome do cliente, PPPOE), fica Azul
+                corFundo = '#2563eb'; 
+                corTexto = '#ffffff';
+            }
+
+            // 4. Desenha cada porta (quadradinho) com a cor decidida
+            quadradosHtml += `
+                <div id="quad-vis-${i + 1}" style="
+                    background-color: ${corFundo}; 
+                    color: ${corTexto};
+                    border: 2px solid var(--border);
+                    border-radius: 8px;
+                    aspect-ratio: 1; 
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    font-size: 1.2rem;
+                    transition: background-color 0.4s ease;
+                ">
+                    ${i + 1}
+                </div>
+            `;
         });
+
+        // Atualiza a área de texto escondida
         document.getElementById('previewArea').innerText = text;
+        
+        // Joga os quadradinhos na nossa nova grade HTML!
+        document.getElementById('ctoDrawing').innerHTML = quadradosHtml;
     }
+
+       function analisarRetorno() {
+        const texto = document.getElementById('textoRetorno').value;
+        
+        // CORREÇÃO: Limpa as lixeiras de análises anteriores e reseta o desenho!
+        updatePreview();
+        
+        if (!texto.trim()) {
+            alert("Cole a mensagem da central primeiro!");
+            return;
+        }
+
+        // Regex que ignora tudo e puxa só números isolados de 4 ou 5 dígitos
+        const regex = /\b\d{4,5}\b/g;
+        const codigosInativos = texto.match(regex) || [];
+
+        if (codigosInativos.length === 0) {
+            alert("Nenhum código de 4 ou 5 dígitos encontrado no texto.");
+            return;
+        }
+
+        let encontrados = 0;
+
+        // Varre as 16 portas do I__NATIVOS
+        for (let i = 0; i < 16; i++) {
+            const valorNaPorta = portsData[i] ? portsData[i].trim() : '';
+            
+            // Se o código da porta estiver na lista de inativos...
+            if (valorNaPorta !== '' && codigosInativos.includes(valorNaPorta)) {
+                const quadrado = document.getElementById(`quad-vis-${i + 1}`);
+                if (quadrado) {
+                    quadrado.classList.add('status-remover');
+                    quadrado.innerHTML = '🗑️'; // Lixeira!
+                    encontrados++;
+                }
+            }
+        }
+
+        if (encontrados > 0) {
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            sfxErro.currentTime = 0;
+            sfxErro.play().catch(e => {}); 
+            showToast(false); 
+        } else {
+            alert(`Achei os códigos (${codigosInativos.join(', ')}), mas nenhum bate com o que você digitou nas portas.`);
+        }
+    }
+
+
 
     function saveData() {
         localStorage.setItem('imais_cto', document.getElementById('ctoName').value);
