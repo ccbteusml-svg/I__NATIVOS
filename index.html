@@ -523,8 +523,9 @@
             return;
         }
 
-        // Regex que ignora tudo e puxa só números isolados de 4 ou 5 dígitos
-        const regex = /\b\d{4,5}\b/g;
+               // Regex blindado: acha 4 ou 5 dígitos seguidos, mesmo se tiverem letras grudadas neles
+        const regex = /(?<!\d)\d{4,5}(?!\d)/g;
+
         const codigosInativos = texto.match(regex) || [];
 
         if (codigosInativos.length === 0) {
