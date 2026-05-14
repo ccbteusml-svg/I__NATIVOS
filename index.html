@@ -540,7 +540,7 @@
         });
 
         // Atualiza a área de texto escondida
-        document.getElementById('previewArea').innerText = text;
+        document.getElementById('previewArea').textContent = text; 
         
         // Joga os quadradinhos na nossa nova grade HTML!
         document.getElementById('ctoDrawing').innerHTML = quadradosHtml;
