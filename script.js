@@ -16,14 +16,42 @@ async function salvarEmBackground() {
     };
 
     try {
-        // Envia para o Excel (Modo Furtivo) sem travar a tela
-        await fetch(SHEETDB_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        console.log("Histórico atualizado no Excel com sucesso!");
+        // 1. Pergunta para a planilha QUANTAS vezes essa CTO aparece
+        const responseBusca = await fetch(`${SHEETDB_URL}/search?CTO=${encodeURIComponent(cto)}`);
+        const dadosBusca = await responseBusca.json();
+
+        // 2. AUTO-LIMPEZA: Se houver MAIS DE UMA (duplicatas antigas sujas)
+        if (dadosBusca && dadosBusca.length > 1) {
+            console.log(`Encontradas ${dadosBusca.length} duplicatas. Limpando...`);
+            // Deleta TODAS as linhas dessa CTO para limpar o banco
+            await fetch(`${SHEETDB_URL}/CTO/${encodeURIComponent(cto)}`, {
+                method: 'DELETE'
+            });
+            
+            // Salva uma única linha nova e atualizada
+            await fetch(SHEETDB_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } 
+        // 3. Se existir EXATAMENTE UMA linha (Atualização normal)
+        else if (dadosBusca && dadosBusca.length === 1) {
+            await fetch(`${SHEETDB_URL}/CTO/${encodeURIComponent(cto)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } 
+        // 4. Se não existir nenhuma (CTO totalmente nova)
+        else {
+            await fetch(SHEETDB_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+
     } catch (error) {
         console.error("Erro no background save:", error);
     }
