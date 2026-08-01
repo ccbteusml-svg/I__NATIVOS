@@ -255,15 +255,33 @@
             100% { background-color: #dc2626; transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
         }
 
-        .status-remover {
+                .status-remover {
             animation: piscar-remocao 1s infinite !important;
             color: white !important;
             font-size: 1.5rem !important;
         }
 
+        /* --- VISUAL DA NOVA JANELA DE AVISOS --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
+            display: none; align-items: center; justify-content: center;
+            z-index: 2000; opacity: 0; transition: opacity 0.2s;
+        }
+        .modal-overlay.show { opacity: 1; }
+        .modal-box {
+            background: var(--card-bg); padding: 20px; border-radius: 12px;
+            width: 85%; max-width: 320px; text-align: center;
+            border: 1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            transform: scale(0.9); transition: transform 0.2s;
+        }
+        .modal-overlay.show .modal-box { transform: scale(1); }
+        .modal-text { margin-bottom: 20px; font-size: 1.05rem; color: var(--text-main); white-space: pre-wrap; font-weight: 500;}
+        .modal-buttons { display: flex; gap: 10px; }
 
     </style>
 </head>
+
 <body>
 
 <div class="container">
@@ -281,16 +299,23 @@
         </div>
     </header>
 
-    <div class="card">
+        <div class="card">
         <label>Identificação da CTO</label>
-        <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
+        
+        <!-- Novo formato: Campo de texto e botão de pesquisa lado a lado -->
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off" style="flex: 1; margin: 0;">
+            <button class="btn btn-blue" onclick="buscarBancoDados()" style="width: 60px; padding: 0; background-color: #059669;" title="Buscar no Excel">
+                ☁️🔍
+            </button>
+        </div>
         
         <div style="display: flex; gap: 10px; margin-top: 15px;">
-    <button class="btn btn-blue" style="flex: 2;" onclick="copyToWhatsapp()">📋 Copiar</button>
-    <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️</button>
-</div>
-
+            <button class="btn btn-blue" style="flex: 2;" onclick="copyToWhatsapp()">📋 Copiar </button>
+            <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️ Limpar</button>
+        </div>
     </div>
+
 
     <div class="card" id="portsContainer">
     </div>
@@ -313,21 +338,45 @@
 
         <div class="preview-box" id="previewArea" style="display: none;">Aguardando dados...</div>
     </div>
-    <div class="card">
-        <label>Análise de Retorno da Central</label>
-        <textarea id="textoRetorno" rows="3" placeholder="Cole aqui a mensagem da Central..."></textarea>
-
-        
-        <button class="btn btn-red" onclick="analisarRetorno()" style="background-color: #991b1b;">
-            🔍 Analisar Inativos
+        <div class="card">
+        <!-- Botão que abre e fecha a área -->
+        <button class="btn" id="btnToggleCentral" onclick="toggleCentral()" style="background-color: var(--btn-mini-bg); color: var(--text-main); border: 1px solid var(--border);">
+            ⚙️ Ferramentas da Central (Abrir)
         </button>
+        
+        <!-- Área oculta com a caixa de texto e os dois botões -->
+        <div id="areaCentral" style="display: none; margin-top: 15px;">
+            <textarea id="textoRetorno" rows="3" placeholder="Cole aqui a mensagem da Central ou os dados da planilha..."></textarea>
+            
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn btn-red" onclick="analisarRetorno()" style="flex: 1; background-color: #991b1b; font-size: 0.9rem;">
+                    🔍 Analisar Inativos
+                </button>
+                <button class="btn btn-blue" onclick="carregarCTO()" style="flex: 1; font-size: 0.9rem;">
+                    ♻️ Carregar CTO
+                </button>
+            </div>
+        </div>
     </div>
 
+
+</div>
+
+<!-- Nossa Nova Janela de Avisos Profissional -->
+<div id="customModal" class="modal-overlay">
+    <div class="modal-box">
+        <div id="modalText" class="modal-text">Mensagem aqui</div>
+        <div class="modal-buttons">
+            <button id="modalBtnCancel" class="btn btn-red" style="display: none; flex: 1;">Cancelar</button>
+            <button id="modalBtnOk" class="btn btn-blue" style="flex: 1;">OK</button>
+        </div>
+    </div>
 </div>
 
 <div id="toast">⚠️ Código de cliente duplicado!</div>
 
 <script>
+
     const sfxErro = new Audio('erro_digital.mp3');   
     const sfxClick = new Audio('click_tec.mp3');     
     const sfxSucesso = new Audio('sucesso.mp3');     
@@ -356,31 +405,79 @@
         updateData(index, text);
     }
 
-    function copyToWhatsapp() {
-    const text = document.getElementById('previewArea').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        // Toca som de sucesso
-        sfxSucesso.play().catch(e => {}); 
+                function copyToWhatsapp() {
+        const text = document.getElementById('previewArea').textContent;
+        const currentCtoName = document.getElementById('ctoName').value.trim() || 'CTO SEM NOME';
+        const currentPortsJSON = JSON.stringify(portsData); 
         
-        // Efeito visual no botão de copiar
-        const btn = document.querySelector('.btn-blue');
-        const originalText = btn.innerText;
-        btn.innerText = '✅ Copiado!';
-        setTimeout(() => btn.innerText = originalText, 2000);
+        // Colocamos o "async" aqui dentro para poder esperar a resposta do usuário
+        navigator.clipboard.writeText(text).then(async () => {
+            if (typeof sfxSucesso !== 'undefined') {
+                sfxSucesso.currentTime = 0;
+                sfxSucesso.play().catch(e => {}); 
+            }
+            const btn = document.querySelector('.btn-blue');
+            const originalText = btn.innerText;
+            btn.innerText = '✅ Copiado!';
+            setTimeout(() => btn.innerText = originalText, 2000);
 
-        // DISPARO OCULTO PARA O EXCEL:
-        if (typeof salvarEmBackground === 'function') {
-            salvarEmBackground();
-        }
-    });
-}
+            const lastSavedCto = localStorage.getItem('imais_last_saved_cto');
+            const lastSavedPorts = localStorage.getItem('imais_last_saved_ports');
+            
+            if (currentCtoName === lastSavedCto && currentPortsJSON === lastSavedPorts) {
+                await showCustomModal("⚠️ Nenhuma alteração detectada na CTO.\nO envio para a planilha foi cancelado para evitar duplicação.", false);
+                return; 
+            }
+            
+            if (typeof salvarEmBackground === 'function') {
+                const confirma = await showCustomModal(`Deseja salvar/atualizar a ${currentCtoName} no Excel?`, true);
+                
+                if (confirma) {
+                    salvarEmBackground();
+                    localStorage.setItem('imais_last_saved_cto', currentCtoName);
+                    localStorage.setItem('imais_last_saved_ports', currentPortsJSON);
+                }
+            }
+        });
+    }
 
-    
-        function clearAll() {
-        if(confirm('Limpar toda a CTO?')) {
+            // --- MOTOR DA NOVA JANELA DE AVISOS ---
+    function showCustomModal(mensagem, isConfirm = false) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('customModal');
+            const modalText = document.getElementById('modalText');
+            const btnOk = document.getElementById('modalBtnOk');
+            const btnCancel = document.getElementById('modalBtnCancel');
+
+            modalText.innerText = mensagem;
+            btnCancel.style.display = isConfirm ? 'block' : 'none';
+            
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+
+            const closeModal = (resultado) => {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    btnOk.onclick = null;
+                    btnCancel.onclick = null;
+                    resolve(resultado);
+                }, 200);
+            };
+
+            btnOk.onclick = () => closeModal(true);
+            btnCancel.onclick = () => closeModal(false);
+        });
+    }
+
+    // --- NOVO BOTÃO LIMPAR USANDO O MODAL ---
+    async function clearAll() {
+        const querLimpar = await showCustomModal('Limpar toda a CTO?', true);
+        
+        if(querLimpar) {
             sfxLixo.play().catch(e => {}); 
             document.getElementById('ctoName').value = '';
-            document.getElementById('textoRetorno').value = ''; // <--- ADICIONE ESTA LINHA!
+            document.getElementById('textoRetorno').value = ''; 
             portsData.fill('');
             renderPorts();
             updatePreview();
@@ -389,6 +486,7 @@
             checkDuplicates(); 
         }
     }
+
 
     const totalPorts = 16;
     let portsData = new Array(totalPorts).fill('');
@@ -546,39 +644,34 @@
         document.getElementById('ctoDrawing').innerHTML = quadradosHtml;
     }
 
-       function analisarRetorno() {
+    async function analisarRetorno() {
         const texto = document.getElementById('textoRetorno').value;
         
-        // CORREÇÃO: Limpa as lixeiras de análises anteriores e reseta o desenho!
         updatePreview();
         
         if (!texto.trim()) {
-            alert("Cole a mensagem da central primeiro!");
+            await showCustomModal("Cole a mensagem da central primeiro!", false);
             return;
         }
 
-               // Regex blindado: acha 4 ou 5 dígitos seguidos, mesmo se tiverem letras grudadas neles
         const regex = /(?<!\d)\d{4,5}(?!\d)/g;
-
         const codigosInativos = texto.match(regex) || [];
 
         if (codigosInativos.length === 0) {
-            alert("Nenhum código de 4 ou 5 dígitos encontrado no texto.");
+            await showCustomModal("Nenhum código de 4 ou 5 dígitos encontrado no texto.", false);
             return;
         }
 
         let encontrados = 0;
 
-        // Varre as 16 portas do I__NATIVOS
         for (let i = 0; i < 16; i++) {
             const valorNaPorta = portsData[i] ? portsData[i].trim() : '';
             
-            // Se o código da porta estiver na lista de inativos...
             if (valorNaPorta !== '' && codigosInativos.includes(valorNaPorta)) {
                 const quadrado = document.getElementById(`quad-vis-${i + 1}`);
                 if (quadrado) {
                     quadrado.classList.add('status-remover');
-                    quadrado.innerHTML = '🗑️'; // Lixeira!
+                    quadrado.innerHTML = '🗑️'; 
                     encontrados++;
                 }
             }
@@ -590,9 +683,10 @@
             sfxErro.play().catch(e => {}); 
             showToast(false); 
         } else {
-            alert(`Achei os códigos (${codigosInativos.join(', ')}), mas nenhum bate com o que você digitou nas portas.`);
+            await showCustomModal(`Achei os códigos (${codigosInativos.join(', ')}), mas nenhum bate com o que você digitou nas portas.`, false);
         }
     }
+
 
 
 
@@ -624,12 +718,114 @@
         window.addEventListener('offline', () => document.getElementById('onlineStatus').style.opacity = '0.3');
     }
 
+    // Função para Expandir/Comprimir a área da Central
+    function toggleCentral() {
+        const area = document.getElementById('areaCentral');
+        const btn = document.getElementById('btnToggleCentral');
+        
+        if (area.style.display === 'none') {
+            area.style.display = 'block';
+            btn.innerHTML = '⚙️ Ferramentas da Central (Fechar)';
+        } else {
+            area.style.display = 'none';
+            btn.innerHTML = '⚙️ Ferramentas da Central (Abrir)';
+        }
+    }
+
+    // Função de Engenharia Reversa (Puxa os dados do texto do Excel de volta para o App)
+        async function carregarCTO() {
+        const texto = document.getElementById('textoRetorno').value;
+        
+        if (!texto.trim()) {
+            await showCustomModal("Cole o texto da CTO copiado da planilha primeiro!", false);
+            return;
+        }
+
+        const regexCTO = /📌\s*\*(.*?)\*/;
+        const matchCTO = texto.match(regexCTO);
+        if (matchCTO && matchCTO[1]) {
+            document.getElementById('ctoName').value = matchCTO[1].trim();
+        }
+
+        for (let i = 1; i <= 16; i++) {
+            const regexPorta = new RegExp(`P${i}\\s*➔\\s*(.+)`);
+            const matchPorta = texto.match(regexPorta);
+            
+            let valorDaPorta = '';
+            if (matchPorta && matchPorta[1]) {
+                valorDaPorta = matchPorta[1].trim();
+                if (valorDaPorta === '---') valorDaPorta = ''; 
+            }
+
+            const input = document.getElementById(`input-${i}`);
+            if (input) {
+                input.value = valorDaPorta;
+            }
+            
+            portsData[i - 1] = valorDaPorta;
+            updateButtonStyles(i, valorDaPorta);
+        }
+
+        saveData();
+        checkDuplicates();
+        updatePreview();
+        
+        document.getElementById('textoRetorno').value = '';
+        toggleCentral();
+        
+        if (typeof sfxSucesso !== 'undefined') {
+            sfxSucesso.currentTime = 0;
+            sfxSucesso.play().catch(e => {});
+        }
+    }
+
+
+    async function buscarBancoDados() {
+        const ctoNome = document.getElementById('ctoName').value.trim();
+        
+        if (!ctoNome) {
+            await showCustomModal("Digite pelo menos um pedaço do nome da CTO (ex: 4.2.4) para buscar!", false);
+            return;
+        }
+
+        const btnBusca = document.querySelector('button[onclick="buscarBancoDados()"]');
+        const textoOriginal = btnBusca.innerHTML;
+        btnBusca.innerHTML = '⏳';
+        
+        try {
+            const urlDB = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
+            const resposta = await fetch(`${urlDB}/search?CTO=*${encodeURIComponent(ctoNome)}*&casesensitive=false`);
+            const dados = await resposta.json();
+
+            if (dados && dados.length > 0) {
+                if (dados.length === 1) {
+                    const resumoEncontrado = dados[0].RESUMO;
+                    document.getElementById('textoRetorno').value = resumoEncontrado;
+                    carregarCTO(); 
+                } else {
+                    const nomesEncontrados = dados.map(item => item.CTO).join('\n- ');
+                    await showCustomModal(`Encontrei ${dados.length} caixas que contêm "${ctoNome}":\n\n- ${nomesEncontrados}\n\nPor favor, digite mais números/letras para eu saber qual é a certa.`, false);
+                }
+            } else {
+                await showCustomModal(`Nenhuma caixa encontrada contendo "${ctoNome}".`, false);
+            }
+        } catch (erro) {
+            console.error("Erro ao buscar:", erro);
+            await showCustomModal("Erro ao conectar com o banco de dados. Verifique a internet.", false);
+        } finally {
+            btnBusca.innerHTML = textoOriginal;
+        }
+    }
+
+
+
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
     }
 </script>
 
 <script src="script.js"></script>
+
 
 </body>
 </html>
