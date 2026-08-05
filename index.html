@@ -3,829 +3,1003 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>I__NATIVOS Gerenciador</title>
+    <title>I__NATIVOS v2 — Gerenciador CTO</title>
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#111827">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/751/751463.png">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <style>
-            textarea {
-            width: 100%;
-            box-sizing: border-box; /* Isso impede que a caixa vaze para os lados */
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--input-bg);
-            color: var(--input-text);
-            font-family: inherit;
-            margin-bottom: 10px;
-            resize: none; /* Impede que o usuário mude o tamanho sem querer */
-            transition: all 0.3s ease;
-        }
-        /* Estilo para as portas vazias (afundadas na CTO) */
-        [id^="quad-vis-"] {
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.4);
-            background-color: var(--input-bg);
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            font-family: 'Courier New', Courier, monospace;
-            transition: all 0.3s ease;
-        }
-
-        /* Efeito quando a porta é preenchida/colorida (salta para fora) */
-        [id^="quad-vis-"][style*="background-color: #"] {
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-            border: 2px solid rgba(255,255,255,0.2) !important;
-            transform: translateY(-3px);
-        }
-
-
         :root {
-            --primary: #2563eb;
-            --danger: #dc2626;
+            --primary: #3b82f6;
+            --primary-light: #60a5fa;
+            --primary-dark: #1d4ed8;
+            --danger: #ef4444;
+            --danger-soft: #fee2e2;
             --warning: #f59e0b;
-            --dark-bg: #111827; 
-            --card-bg: #1f2937;
-            --text-main: #f3f4f6;
-            --border: #374151;
-            --input-bg: #374151;
-            --input-text: #ffffff;
-            --btn-mini-bg: #4b5563;
-            --btn-mini-text: #ffffff;
+            --warning-soft: #fef3c7;
+            --success: #22c55e;
+            --success-soft: #dcfce7;
+            --info: #6366f1;
+            --info-soft: #e0e7ff;
+            
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --surface-elevated: #283548;
+            --border: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
         }
-
+        
         body.light-mode {
-            --dark-bg: #f0f2f5;      
-            --card-bg: #ffffff;      
-            --text-main: #1f2937;    
-            --border: #d1d5db;       
-            --input-bg: #f9fafb;     
-            --input-text: #111827;   
-            --btn-mini-bg: #e5e7eb;  
-            --btn-mini-text: #374151;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --surface-hover: #f1f5f9;
+            --surface-elevated: #ffffff;
+            --border: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
-
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--dark-bg);
-            margin: 0;
-            padding: 10px;
-            color: var(--text-main);
-            padding-bottom: 80px; 
-            transition: background-color 0.3s, color 0.3s;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
-
-        .container { max-width: 600px; margin: 0 auto; }
-
-        header {
+        
+        .app-container {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+        
+        /* Header */
+        .app-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding: 10px;
+            margin-bottom: 24px;
+            padding: 8px 4px;
         }
-
-        .header-controls {
+        
+        .brand {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
-
-        .status-badge {
-            background-color: #064e3b;
-            color: #4ade80;
-            padding: 4px 12px;
-            border-radius: 9999px;
+        
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--primary), var(--info));
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: var(--shadow);
+        }
+        
+        .brand-text h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        
+        .brand-text span {
             font-size: 0.75rem;
-            font-weight: bold;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .icon-btn:hover {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+        
+        .icon-btn:active { transform: scale(0.95); }
+        
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse-dot 2s infinite;
+        }
+        
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            animation: slideUp 0.4s ease-out both;
+        }
+        
+        .card:hover { box-shadow: var(--shadow-lg); }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .card-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+        
+        .badge-green { background: var(--success-soft); color: #166534; }
+        .badge-red { background: var(--danger-soft); color: #991b1b; }
+        .badge-yellow { background: var(--warning-soft); color: #92400e; }
+        .badge-blue { background: var(--info-soft); color: #3730a3; }
+        
+        body.light-mode .badge-green { color: #166534; }
+        body.light-mode .badge-red { color: #991b1b; }
+        body.light-mode .badge-yellow { color: #92400e; }
+        body.light-mode .badge-blue { color: #3730a3; }
+        
+        /* Inputs */
+        .input-group {
+            position: relative;
+            margin-bottom: 12px;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 14px 16px;
+            padding-right: 48px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s;
+            outline: none;
+        }
+        
+        .input-field:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        
+        .input-field::placeholder { color: var(--text-muted); }
+        
+        .input-icon {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            pointer-events: none;
+        }
+        
+        .input-error {
+            border-color: var(--danger) !important;
+            background: rgba(239, 68, 68, 0.05) !important;
+            animation: shake 0.4s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-primary:active { transform: translateY(0); }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #b91c1c);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-ghost:hover {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+        }
+        
+        .btn-sm { padding: 8px 14px; font-size: 0.8rem; }
+        .btn-block { width: 100%; }
+        
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        
+        .btn-row .btn { flex: 1; }
+        
+        /* Port Row */
+        .port-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-radius: var(--radius);
+            background: var(--bg);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            animation: slideUp 0.3s ease-out both;
+        }
+        
+        .port-row:hover {
+            border-color: var(--border);
+            background: var(--surface-hover);
+        }
+        
+        .port-row:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .port-num {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface-elevated);
+            border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--primary);
+            flex-shrink: 0;
+            border: 1px solid var(--border);
+        }
+        
+        .port-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: inherit;
+            padding: 8px;
+            outline: none;
+            min-width: 0;
+        }
+        
+        .port-input::placeholder { color: var(--text-muted); }
+        
+        .port-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .port-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: all 0.15s;
+        }
+        
+        .port-btn:hover {
+            transform: scale(1.1);
+            color: var(--text-primary);
+        }
+        
+        .port-btn.active-warn { background: var(--warning); color: white; border-color: var(--warning); }
+        .port-btn.active-danger { background: var(--danger); color: white; border-color: var(--danger); }
+        .port-btn.active-info { background: var(--info); color: white; border-color: var(--info); }
+        
+        /* CTO Visualizer */
+        .cto-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        
+        .cto-slot {
+            aspect-ratio: 1;
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border: 2px solid var(--border);
+            background: var(--bg);
+            color: var(--text-muted);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        body.light-mode .cto-slot {
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .cto-slot:hover {
+            transform: translateY(-3px) scale(1.05);
+            z-index: 2;
+        }
+        
+        .cto-slot .slot-num {
+            font-size: 1.1rem;
+            margin-bottom: 2px;
+        }
+        
+        .cto-slot .slot-label {
+            font-size: 0.6rem;
+            opacity: 0.8;
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 4px;
+        }
+        
+        .cto-slot.occupied {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .cto-slot.free {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        }
+        
+        .cto-slot.defect {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+            animation: pulse-red 2s infinite;
+        }
+        
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); }
+            50% { box-shadow: 0 4px 20px rgba(220, 38, 38, 0.5); }
+        }
+        
+        .cto-slot.unidentified {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+        
+        .cto-slot.marked-delete {
+            animation: blink-delete 1s infinite;
+        }
+        
+        @keyframes blink-delete {
+            0%, 100% { background: #ef4444; transform: scale(1); }
+            50% { background: #7f1d1d; transform: scale(1.08); }
+        }
+        
+        /* Stats Bar */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px 6px;
+            background: var(--bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+        
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 2px;
+        }
+        
+        .stat-green { color: var(--success); }
+        .stat-red { color: var(--danger); }
+        .stat-yellow { color: var(--warning); }
+        .stat-blue { color: var(--primary); }
+        
+        /* Progress Bar */
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: var(--bg);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--success), var(--primary));
+            transition: width 0.5s ease;
+            position: relative;
+        }
+        
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 20px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+        }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .legend-item {
             display: flex;
             align-items: center;
             gap: 5px;
         }
-
-        .status-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; }
-
-        .theme-btn {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-main);
+        
+        .legend-dot {
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            cursor: pointer;
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.25s;
+            padding: 20px;
+        }
+        
+        .modal-overlay.show { display: flex; opacity: 1; }
+        
+        .modal-box {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 360px;
+            padding: 24px;
+            box-shadow: var(--shadow-lg);
+            transform: scale(0.9) translateY(10px);
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .modal-overlay.show .modal-box {
+            transform: scale(1) translateY(0);
+        }
+        
+        .modal-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
+            margin: 0 auto 16px;
         }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-bottom: 16px;
+        
+        .modal-icon.warn { background: var(--warning-soft); }
+        .modal-icon.danger { background: var(--danger-soft); }
+        .modal-icon.info { background: var(--info-soft); }
+        
+        .modal-title {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .modal-text {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .modal-actions .btn { flex: 1; }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--surface-elevated);
+            color: var(--text-primary);
+            padding: 14px 24px;
+            border-radius: var(--radius);
             border: 1px solid var(--border);
-            transition: background-color 0.3s, border-color 0.3s;
+            box-shadow: var(--shadow-lg);
+            font-size: 0.9rem;
+            font-weight: 500;
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+            max-width: 90%;
         }
-
-        label { display: block; font-weight: 600; margin-bottom: 8px; color: #9ca3af; }
-
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 1rem;
-            background: var(--input-bg);
-            color: var(--input-text);
-            box-sizing: border-box;
-            transition: background-color 0.3s, color 0.3s;
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
         }
-
-        .btn {
+        
+        .toast.error { border-left: 4px solid var(--danger); }
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.warn { border-left: 4px solid var(--warning); }
+        
+        /* Collapsible Section */
+        .collapse-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 0;
+            user-select: none;
+        }
+        
+        .collapse-icon {
+            transition: transform 0.3s;
+            color: var(--text-muted);
+        }
+        
+        .collapse-header.open .collapse-icon {
+            transform: rotate(180deg);
+        }
+        
+        .collapse-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s;
+            opacity: 0;
+        }
+        
+        .collapse-body.open {
+            max-height: 500px;
+            opacity: 1;
+            margin-top: 14px;
+        }
+        
+        /* Textarea */
+        .textarea-field {
             width: 100%;
             padding: 14px;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            transition: opacity 0.2s;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            min-height: 100px;
+            outline: none;
+            transition: all 0.2s;
         }
-        .btn:active { opacity: 0.7; }
-        .btn-blue { background-color: var(--primary); }
-        .btn-red { background-color: var(--danger); }
-
-        .port-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
+        
+        .textarea-field:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
-
-        .port-label { font-weight: bold; color: var(--primary); width: 40px; }
-        .port-input-wrapper { flex: 1; }
-
-        .action-buttons { display: flex; gap: 5px; }
-
-        .mini-btn {
-            width: 40px;
-            height: 40px;
-            border: 1px solid var(--border);
-            background: var(--btn-mini-bg);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: var(--btn-mini-text);
-            font-size: 1.2rem;
-            transition: background-color 0.3s;
-        }
-
-        .active-warning { background-color: var(--warning) !important; color: #fff !important; }
-        .active-danger { background-color: var(--danger) !important; color: #fff !important; }
-        .active-info { background-color: #6b7280 !important; color: #fff !important; }
-
+        
+        /* Preview */
         .preview-box {
-            background-color: #0f172a;
-            border: 1px solid var(--primary);
-            border-radius: 8px;
-            padding: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            white-space: pre-wrap;
-            color: #60a5fa;
-            line-height: 1.4;
-        }
-
-        .input-error {
-            border-color: var(--danger) !important;
-            background-color: rgba(220, 38, 38, 0.15) !important;
-            color: var(--danger) !important;
-            font-weight: bold;
-            animation: shake 0.3s;
-        }
-
-        @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            50% { transform: translateX(5px); }
-            75% { transform: translateX(-5px); }
-            100% { transform: translateX(0); }
-        }
-
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: var(--danger);
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             padding: 16px;
-            position: fixed;
-            z-index: 1000;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            color: var(--primary-light);
+            line-height: 1.6;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .preview-box.show { display: block; }
+        
+        /* Tooltip */
+        [data-tooltip] { position: relative; }
+        
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 120%;
             left: 50%;
-            bottom: 30px;
-            transform: translateX(-50%);
-            font-size: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transform: translateX(-50%) scale(0.9);
+            background: var(--surface-elevated);
+            color: var(--text-primary);
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            white-space: nowrap;
             opacity: 0;
-            transition: opacity 0.3s, bottom 0.3s;
+            pointer-events: none;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            z-index: 100;
         }
-
-        #toast.show {
-            visibility: visible;
+        
+        [data-tooltip]:hover::after {
             opacity: 1;
-            bottom: 50px;
+            transform: translateX(-50%) scale(1);
+            bottom: 130%;
         }
-                /* Animação para porta inativa (piscar em vermelho e destacar) */
-        @keyframes piscar-remocao {
-            0% { background-color: #dc2626; transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-            50% { background-color: #7f1d1d; transform: scale(1.05); box-shadow: 0 0 15px 5px rgba(220, 38, 38, 0.9); border-color: #fff; }
-            100% { background-color: #dc2626; transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        
+        /* Keyboard hint */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
-
-                .status-remover {
-            animation: piscar-remocao 1s infinite !important;
-            color: white !important;
-            font-size: 1.5rem !important;
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .app-container { padding: 12px; }
+            .brand-text h1 { font-size: 1.1rem; }
+            .cto-grid { gap: 6px; }
+            .cto-slot { font-size: 0.7rem; }
+            .stats-row { gap: 6px; }
+            .stat-value { font-size: 1rem; }
         }
-
-        /* --- VISUAL DA NOVA JANELA DE AVISOS --- */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
-            display: none; align-items: center; justify-content: center;
-            z-index: 2000; opacity: 0; transition: opacity 0.2s;
-        }
-        .modal-overlay.show { opacity: 1; }
-        .modal-box {
-            background: var(--card-bg); padding: 20px; border-radius: 12px;
-            width: 85%; max-width: 320px; text-align: center;
-            border: 1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            transform: scale(0.9); transition: transform 0.2s;
-        }
-        .modal-overlay.show .modal-box { transform: scale(1); }
-        .modal-text { margin-bottom: 20px; font-size: 1.05rem; color: var(--text-main); white-space: pre-wrap; font-weight: 500;}
-        .modal-buttons { display: flex; gap: 10px; }
-
     </style>
 </head>
 
 <body>
 
-<div class="container">
-    <header>
-        <div>
-            <h1 style="margin:0; font-size:1.4rem; color:var(--primary);">I__NATIVOS</h1>
-            <small style="color:#9ca3af;">Controle de CTO / Fibra</small>
+<div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-icon">📡</div>
+            <div class="brand-text">
+                <h1>I__NATIVOS</h1>
+                <span>Gerenciador CTO / Fibra</span>
+            </div>
         </div>
-        <div class="header-controls">
-
-            <button class="theme-btn" id="themeToggle" onclick="toggleTheme()">☀️</button>
-            <div class="status-badge" id="onlineStatus">
-                <div class="status-dot"></div> On
+        <div class="header-actions">
+            <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" data-tooltip="Alternar tema">☀️</button>
+            <div class="status-pill">
+                <div class="status-dot"></div>
+                <span>On</span>
             </div>
         </div>
     </header>
 
-        <div class="card">
-        <label>Identificação da CTO</label>
+    <!-- Card: Identificação -->
+    <div class="card" style="animation-delay: 0.05s">
+        <div class="card-header">
+            <span class="card-title">📌 Identificação</span>
+            <span class="badge badge-blue" id="savedIndicator" style="display:none">Salvo</span>
+        </div>
         
-        <!-- Novo formato: Campo de texto e botão de pesquisa lado a lado -->
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="ctoName" placeholder="Ex: CTOMO 16.1.6" autocomplete="off" style="flex: 1; margin: 0;">
-            <button class="btn btn-blue" onclick="buscarBancoDados()" style="width: 60px; padding: 0; background-color: #059669;" title="Buscar no Excel">
-                ☁️🔍
+        <div class="input-group">
+            <input type="text" id="ctoName" class="input-field" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
+            <span class="input-icon">🔍</span>
+        </div>
+        
+        <div class="btn-row">
+            <button class="btn btn-primary btn-block" onclick="copyToClipboard()">
+                <span>📋</span> Copiar Resumo
+            </button>
+            <button class="btn btn-ghost" onclick="exportData()" data-tooltip="Exportar JSON">
+                💾
             </button>
         </div>
         
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn btn-blue" style="flex: 2;" onclick="copyToWhatsapp()">📋 Copiar </button>
-            <button class="btn btn-red" style="flex: 1;" onclick="clearAll()">🗑️ Limpar</button>
+        <div class="btn-row" style="margin-top:8px">
+            <button class="btn btn-ghost btn-sm btn-block" onclick="clearAll()">
+                🗑️ Limpar Tudo
+            </button>
         </div>
     </div>
 
-
-    <div class="card" id="portsContainer">
-    </div>
-
-       <div class="card">
-        <label>Visualização Dinâmica da CTO</label>
+    <!-- Card: Estatísticas -->
+    <div class="card" style="animation-delay: 0.1s">
+        <div class="card-header">
+            <span class="card-title">📊 Ocupação</span>
+            <span class="badge" id="occupancyBadge">0%</span>
+        </div>
         
-        <div id="cto-visualizer" style="margin-top: 10px;">
-            <div id="ctoDrawing" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px;">
-                </div>
-            
-            <div style="display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.8rem; justify-content: center; border-top: 1px solid var(--border); padding-top: 15px; margin-top: 20px;">
-
-                <span><b style="color: #4ade80;">●</b> Livre</span>
-                <span><b style="color: #dc2626;">●</b> Defeito</span>
-                <span><b style="color: #f59e0b;">●</b> Sem ident.</span>
-                <span><b style="color: #2563eb;">●</b> Ocupada</span>
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-value stat-green" id="statFree">16</div>
+                <div class="stat-label">Livres</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value stat-blue" id="statOccupied">0</div>
+                <div class="stat-label">Ocupadas</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value stat-red" id="statDefect">0</div>
+                <div class="stat-label">Defeitos</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value stat-yellow" id="statUnidentified">0</div>
+                <div class="stat-label">S/ Ident.</div>
             </div>
         </div>
-
-        <div class="preview-box" id="previewArea" style="display: none;">Aguardando dados...</div>
-    </div>
-        <div class="card">
-        <!-- Botão que abre e fecha a área -->
-        <button class="btn" id="btnToggleCentral" onclick="toggleCentral()" style="background-color: var(--btn-mini-bg); color: var(--text-main); border: 1px solid var(--border);">
-            ⚙️ Ferramentas da Central (Abrir)
-        </button>
         
-        <!-- Área oculta com a caixa de texto e os dois botões -->
-        <div id="areaCentral" style="display: none; margin-top: 15px;">
-            <textarea id="textoRetorno" rows="3" placeholder="Cole aqui a mensagem da Central ou os dados da planilha..."></textarea>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Card: Portas -->
+    <div class="card" style="animation-delay: 0.15s">
+        <div class="card-header">
+            <span class="card-title">🔌 Portas</span>
+            <span class="badge badge-green" id="portCountBadge">0/16</span>
+        </div>
+        <div id="portsContainer"></div>
+    </div>
+
+    <!-- Card: Visualização -->
+    <div class="card" style="animation-delay: 0.2s">
+        <div class="card-header">
+            <span class="card-title">🗺️ Mapa da CTO</span>
+            <button class="icon-btn" style="width:32px;height:32px;font-size:0.9rem" onclick="togglePreview()" data-tooltip="Ver texto">📄</button>
+        </div>
+        
+        <div class="cto-grid" id="ctoDrawing"></div>
+        
+        <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:var(--success)"></span> Livre</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span> Defeito</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--warning)"></span> S/ Ident.</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--primary)"></span> Ocupada</span>
+        </div>
+        
+        <div class="preview-box" id="previewArea"></div>
+    </div>
+
+    <!-- Card: Ferramentas -->
+    <div class="card" style="animation-delay: 0.25s">
+        <div class="collapse-header" onclick="toggleCollapse(this, 'areaCentral')">
+            <span class="card-title">⚙️ Ferramentas da Central</span>
+            <span class="collapse-icon">▼</span>
+        </div>
+        
+        <div class="collapse-body" id="areaCentral">
+            <textarea id="textoRetorno" class="textarea-field" rows="3" placeholder="Cole aqui a mensagem da Central ou dados da planilha..."></textarea>
             
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button class="btn btn-red" onclick="analisarRetorno()" style="flex: 1; background-color: #991b1b; font-size: 0.9rem;">
+            <div class="btn-row" style="margin-top:12px">
+                <button class="btn btn-danger btn-sm" style="flex:1" onclick="analisarRetorno()">
                     🔍 Analisar Inativos
                 </button>
-                <button class="btn btn-blue" onclick="carregarCTO()" style="flex: 1; font-size: 0.9rem;">
+                <button class="btn btn-primary btn-sm" style="flex:1" onclick="carregarCTO()">
                     ♻️ Carregar CTO
                 </button>
             </div>
+            
+            <div class="btn-row" style="margin-top:8px">
+                <button class="btn btn-ghost btn-sm btn-block" onclick="importData()">
+                    📥 Importar JSON
+                </button>
+            </div>
         </div>
     </div>
 
-
+    <!-- Card: Atalhos -->
+    <div class="card" style="animation-delay: 0.3s; opacity: 0.7;">
+        <div class="card-header">
+            <span class="card-title">⌨️ Atalhos</span>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-secondary);line-height:2">
+            <span class="kbd">Ctrl</span> + <span class="kbd">S</span> Salvar &nbsp;
+            <span class="kbd">Ctrl</span> + <span class="kbd">C</span> Copiar &nbsp;
+            <span class="kbd">Ctrl</span> + <span class="kbd">L</span> Limpar &nbsp;
+            <span class="kbd">Ctrl</span> + <span class="kbd">B</span> Buscar
+        </div>
+    </div>
 </div>
 
-<!-- Nossa Nova Janela de Avisos Profissional -->
-<div id="customModal" class="modal-overlay">
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="customModal">
     <div class="modal-box">
-        <div id="modalText" class="modal-text">Mensagem aqui</div>
-        <div class="modal-buttons">
-            <button id="modalBtnCancel" class="btn btn-red" style="display: none; flex: 1;">Cancelar</button>
-            <button id="modalBtnOk" class="btn btn-blue" style="flex: 1;">OK</button>
+        <div class="modal-icon info" id="modalIcon">ℹ️</div>
+        <div class="modal-title" id="modalTitle">Aviso</div>
+        <div class="modal-text" id="modalText">Mensagem</div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" id="modalBtnCancel" style="display:none">Cancelar</button>
+            <button class="btn btn-primary" id="modalBtnOk">OK</button>
         </div>
     </div>
 </div>
-
-<div id="toast">⚠️ Código de cliente duplicado!</div>
-
-<script>
-
-    const sfxErro = new Audio('erro_digital.mp3');   
-    const sfxClick = new Audio('click_tec.mp3');     
-    const sfxSucesso = new Audio('sucesso.mp3');     
-    const sfxLixo = new Audio('trash.mp3');          
-
-    sfxErro.volume = 0.5;
-    sfxClick.volume = 0.3;
-    
-    function showToast(show) {
-        const toast = document.getElementById("toast");
-        if (show) {
-            toast.className = "show";
-            if (navigator.vibrate) navigator.vibrate(200); 
-            sfxErro.currentTime = 0; 
-            sfxErro.play().catch(e => console.log("Erro ao tocar som:", e)); 
-        } else {
-            toast.className = toast.className.replace("show", "");
-        }
-    }
-
-    function setQuickAction(index, text) {
-        sfxClick.currentTime = 0; 
-        sfxClick.play().catch(e => {});          
-        const input = document.getElementById(`input-${index}`);
-        input.value = text;
-        updateData(index, text);
-    }
-
-                function copyToWhatsapp() {
-        const text = document.getElementById('previewArea').textContent;
-        const currentCtoName = document.getElementById('ctoName').value.trim() || 'CTO SEM NOME';
-        const currentPortsJSON = JSON.stringify(portsData); 
-        
-        // Colocamos o "async" aqui dentro para poder esperar a resposta do usuário
-        navigator.clipboard.writeText(text).then(async () => {
-            if (typeof sfxSucesso !== 'undefined') {
-                sfxSucesso.currentTime = 0;
-                sfxSucesso.play().catch(e => {}); 
-            }
-            const btn = document.querySelector('.btn-blue');
-            const originalText = btn.innerText;
-            btn.innerText = '✅ Copiado!';
-            setTimeout(() => btn.innerText = originalText, 2000);
-
-            const lastSavedCto = localStorage.getItem('imais_last_saved_cto');
-            const lastSavedPorts = localStorage.getItem('imais_last_saved_ports');
-            
-            if (currentCtoName === lastSavedCto && currentPortsJSON === lastSavedPorts) {
-                await showCustomModal("⚠️ Nenhuma alteração detectada na CTO.\nO envio para a planilha foi cancelado para evitar duplicação.", false);
-                return; 
-            }
-            
-            if (typeof salvarEmBackground === 'function') {
-                const confirma = await showCustomModal(`Deseja salvar/atualizar a ${currentCtoName} no Excel?`, true);
-                
-                if (confirma) {
-                    salvarEmBackground();
-                    localStorage.setItem('imais_last_saved_cto', currentCtoName);
-                    localStorage.setItem('imais_last_saved_ports', currentPortsJSON);
-                }
-            }
-        });
-    }
-
-            // --- MOTOR DA NOVA JANELA DE AVISOS ---
-    function showCustomModal(mensagem, isConfirm = false) {
-        return new Promise((resolve) => {
-            const modal = document.getElementById('customModal');
-            const modalText = document.getElementById('modalText');
-            const btnOk = document.getElementById('modalBtnOk');
-            const btnCancel = document.getElementById('modalBtnCancel');
-
-            modalText.innerText = mensagem;
-            btnCancel.style.display = isConfirm ? 'block' : 'none';
-            
-            modal.style.display = 'flex';
-            setTimeout(() => modal.classList.add('show'), 10);
-
-            const closeModal = (resultado) => {
-                modal.classList.remove('show');
-                setTimeout(() => {
-                    modal.style.display = 'none';
-                    btnOk.onclick = null;
-                    btnCancel.onclick = null;
-                    resolve(resultado);
-                }, 200);
-            };
-
-            btnOk.onclick = () => closeModal(true);
-            btnCancel.onclick = () => closeModal(false);
-        });
-    }
-
-    // --- NOVO BOTÃO LIMPAR USANDO O MODAL ---
-    async function clearAll() {
-        const querLimpar = await showCustomModal('Limpar toda a CTO?', true);
-        
-        if(querLimpar) {
-            sfxLixo.play().catch(e => {}); 
-            document.getElementById('ctoName').value = '';
-            document.getElementById('textoRetorno').value = ''; 
-            portsData.fill('');
-            renderPorts();
-            updatePreview();
-            localStorage.removeItem('imais_cto');
-            localStorage.removeItem('imais_ports');
-            checkDuplicates(); 
-        }
-    }
-
-
-    const totalPorts = 16;
-    let portsData = new Array(totalPorts).fill('');
-
-    document.addEventListener('DOMContentLoaded', () => {
-        renderPorts();
-        loadSavedData();
-        checkConnection();
-        loadTheme();
-    });
-
-    function toggleTheme() {
-        document.body.classList.toggle('light-mode');
-        const isLight = document.body.classList.contains('light-mode');
-        document.getElementById('themeToggle').innerText = isLight ? '🌙' : '☀️';
-        localStorage.setItem('imais_theme', isLight ? 'light' : 'dark');
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', isLight ? '#f0f2f5' : '#111827');
-    }
-
-    function loadTheme() {
-        const savedTheme = localStorage.getItem('imais_theme');
-        const themeBtn = document.getElementById('themeToggle');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light-mode');
-            themeBtn.innerText = '🌙';
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f0f2f5');
-        } else {
-            themeBtn.innerText = '☀️';
-        }
-    }
-
-    function renderPorts() {
-        const container = document.getElementById('portsContainer');
-        let html = '';
-        for (let i = 1; i <= totalPorts; i++) {
-            html += `
-            <div class="port-row">
-                <span class="port-label">P${i}</span>
-                <div class="port-input-wrapper">
-                    <input type="text" id="input-${i}" oninput="updateData(${i}, this.value)" placeholder="PE">
-                </div>
-                <div class="action-buttons">
-                    <button class="mini-btn" id="btn-u-${i}" onclick="setQuickAction(${i}, 'Sem ident.')">?</button>
-                    <button class="mini-btn" id="btn-d-${i}" onclick="setQuickAction(${i}, 'Defeito')">!</button>
-                    <button class="mini-btn" id="btn-e-${i}" onclick="setQuickAction(${i}, 'Livre')">∞</button>
-                </div>
-            </div>`;
-        }
-        container.innerHTML = html;
-    }
-
-    function updateData(index, value) {
-        portsData[index - 1] = value;
-        updatePreview();
-        updateButtonStyles(index, value);
-        saveData();
-        checkDuplicates();
-    }
-
-    function checkDuplicates() {
-        const ignoredValues = ['', 'Livre', 'Defeito', 'Sem ident.', 'Reserva', 'Vago'];
-        const valueMap = {}; 
-        let hasDuplicate = false;
-
-        for (let i = 1; i <= totalPorts; i++) {
-            const input = document.getElementById(`input-${i}`);
-            if (input) input.classList.remove('input-error');
-        }
-
-        portsData.forEach((val, index) => {
-            const cleanVal = val.trim();
-            if (cleanVal && !ignoredValues.includes(cleanVal)) {
-                if (!valueMap[cleanVal]) {
-                    valueMap[cleanVal] = [];
-                }
-                valueMap[cleanVal].push(index + 1);
-            }
-        });
-
-        Object.keys(valueMap).forEach(key => {
-            const positions = valueMap[key];
-            if (positions.length > 1) { 
-                hasDuplicate = true;
-                positions.forEach(portNum => {
-                    const input = document.getElementById(`input-${portNum}`);
-                    if (input) input.classList.add('input-error');
-                });
-            }
-        });
-
-        showToast(hasDuplicate);
-    }
-
-    function updateButtonStyles(index, value) {
-        document.getElementById(`btn-u-${index}`).className = 'mini-btn' + (value === 'Sem ident.' ? ' active-warning' : '');
-        document.getElementById(`btn-d-${index}`).className = 'mini-btn' + (value === 'Defeito' ? ' active-danger' : '');
-        document.getElementById(`btn-e-${index}`).className = 'mini-btn' + (value === 'Livre' ? ' active-info' : '');
-    }
-
-        function updatePreview() {
-        // 1. Atualiza o texto invisível para o botão de Copiar funcionar
-        const cto = document.getElementById('ctoName').value || 'CTO SEM NOME';
-        let text = `📌 *${cto}*\n\n`;
-        
-        // 2. Prepara a variável que vai segurar os quadradinhos
-        let quadradosHtml = '';
-
-        portsData.forEach((val, i) => {
-            // Continua montando o texto para o Zap
-            text += `P${i+1} ➔ ${val || '---'}\n`;
-
-            // 3. Lógica das Cores
-            let corFundo = 'var(--input-bg)'; // Cor de fundo padrão (Vazia)
-            let corTexto = 'var(--text-main)'; // Cor do texto padrão
-            
-            if (val === 'Livre') {
-                corFundo = '#4ade80'; // Verde
-                corTexto = '#000000'; // Texto preto para dar contraste
-            } else if (val === 'Defeito') {
-                corFundo = '#dc2626'; // Vermelho
-                corTexto = '#ffffff'; // Texto branco
-            } else if (val === 'Sem ident.') {
-                corFundo = '#f59e0b'; // Amarelo
-                corTexto = '#000000'; // Texto preto
-            } else if (val !== '') {
-                // Se tiver qualquer outro texto (ex: nome do cliente, PPPOE), fica Azul
-                corFundo = '#2563eb'; 
-                corTexto = '#ffffff';
-            }
-
-            // 4. Desenha cada porta (quadradinho) com a cor decidida
-            quadradosHtml += `
-                <div id="quad-vis-${i + 1}" style="
-                    background-color: ${corFundo}; 
-                    color: ${corTexto};
-                    border: 2px solid var(--border);
-                    border-radius: 8px;
-                    aspect-ratio: 1; 
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-weight: bold;
-                    font-size: 1.2rem;
-                    transition: background-color 0.4s ease;
-                ">
-                    ${i + 1}
-                </div>
-            `;
-        });
-
-        // Atualiza a área de texto escondida
-        document.getElementById('previewArea').textContent = text; 
-        
-        // Joga os quadradinhos na nossa nova grade HTML!
-        document.getElementById('ctoDrawing').innerHTML = quadradosHtml;
-    }
-
-    async function analisarRetorno() {
-        const texto = document.getElementById('textoRetorno').value;
-        
-        updatePreview();
-        
-        if (!texto.trim()) {
-            await showCustomModal("Cole a mensagem da central primeiro!", false);
-            return;
-        }
-
-        const regex = /(?<!\d)\d{4,5}(?!\d)/g;
-        const codigosInativos = texto.match(regex) || [];
-
-        if (codigosInativos.length === 0) {
-            await showCustomModal("Nenhum código de 4 ou 5 dígitos encontrado no texto.", false);
-            return;
-        }
-
-        let encontrados = 0;
-
-        for (let i = 0; i < 16; i++) {
-            const valorNaPorta = portsData[i] ? portsData[i].trim() : '';
-            
-            if (valorNaPorta !== '' && codigosInativos.includes(valorNaPorta)) {
-                const quadrado = document.getElementById(`quad-vis-${i + 1}`);
-                if (quadrado) {
-                    quadrado.classList.add('status-remover');
-                    quadrado.innerHTML = '🗑️'; 
-                    encontrados++;
-                }
-            }
-        }
-
-        if (encontrados > 0) {
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-            sfxErro.currentTime = 0;
-            sfxErro.play().catch(e => {}); 
-            showToast(false); 
-        } else {
-            await showCustomModal(`Achei os códigos (${codigosInativos.join(', ')}), mas nenhum bate com o que você digitou nas portas.`, false);
-        }
-    }
-
-
-
-
-    function saveData() {
-        localStorage.setItem('imais_cto', document.getElementById('ctoName').value);
-        localStorage.setItem('imais_ports', JSON.stringify(portsData));
-    }
-
-    function loadSavedData() {
-        const cto = localStorage.getItem('imais_cto');
-        const ports = JSON.parse(localStorage.getItem('imais_ports'));
-        if(cto) document.getElementById('ctoName').value = cto;
-        if(ports) {
-            portsData = ports;
-            ports.forEach((val, i) => {
-                const input = document.getElementById(`input-${i+1}`);
-                if(input) {
-                    input.value = val;
-                    updateButtonStyles(i+1, val);
-                }
-            });
-            checkDuplicates(); 
-        }
-        updatePreview();
-    }
-
-    function checkConnection() {
-        window.addEventListener('online', () => document.getElementById('onlineStatus').style.opacity = '1');
-        window.addEventListener('offline', () => document.getElementById('onlineStatus').style.opacity = '0.3');
-    }
-
-    // Função para Expandir/Comprimir a área da Central
-    function toggleCentral() {
-        const area = document.getElementById('areaCentral');
-        const btn = document.getElementById('btnToggleCentral');
-        
-        if (area.style.display === 'none') {
-            area.style.display = 'block';
-            btn.innerHTML = '⚙️ Ferramentas da Central (Fechar)';
-        } else {
-            area.style.display = 'none';
-            btn.innerHTML = '⚙️ Ferramentas da Central (Abrir)';
-        }
-    }
-
-    // Função de Engenharia Reversa (Puxa os dados do texto do Excel de volta para o App)
-        async function carregarCTO() {
-        const texto = document.getElementById('textoRetorno').value;
-        
-        if (!texto.trim()) {
-            await showCustomModal("Cole o texto da CTO copiado da planilha primeiro!", false);
-            return;
-        }
-
-        const regexCTO = /📌\s*\*(.*?)\*/;
-        const matchCTO = texto.match(regexCTO);
-        if (matchCTO && matchCTO[1]) {
-            document.getElementById('ctoName').value = matchCTO[1].trim();
-        }
-
-        for (let i = 1; i <= 16; i++) {
-            const regexPorta = new RegExp(`P${i}\\s*➔\\s*(.+)`);
-            const matchPorta = texto.match(regexPorta);
-            
-            let valorDaPorta = '';
-            if (matchPorta && matchPorta[1]) {
-                valorDaPorta = matchPorta[1].trim();
-                if (valorDaPorta === '---') valorDaPorta = ''; 
-            }
-
-            const input = document.getElementById(`input-${i}`);
-            if (input) {
-                input.value = valorDaPorta;
-            }
-            
-            portsData[i - 1] = valorDaPorta;
-            updateButtonStyles(i, valorDaPorta);
-        }
-
-        saveData();
-        checkDuplicates();
-        updatePreview();
-        
-        document.getElementById('textoRetorno').value = '';
-        toggleCentral();
-        
-        if (typeof sfxSucesso !== 'undefined') {
-            sfxSucesso.currentTime = 0;
-            sfxSucesso.play().catch(e => {});
-        }
-    }
-
-
-    async function buscarBancoDados() {
-        const ctoNome = document.getElementById('ctoName').value.trim();
-        
-        if (!ctoNome) {
-            await showCustomModal("Digite pelo menos um pedaço do nome da CTO (ex: 4.2.4) para buscar!", false);
-            return;
-        }
-
-        const btnBusca = document.querySelector('button[onclick="buscarBancoDados()"]');
-        const textoOriginal = btnBusca.innerHTML;
-        btnBusca.innerHTML = '⏳';
-        
-        try {
-            const urlDB = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
-            const resposta = await fetch(`${urlDB}/search?CTO=*${encodeURIComponent(ctoNome)}*&casesensitive=false`);
-            const dados = await resposta.json();
-
-            if (dados && dados.length > 0) {
-                if (dados.length === 1) {
-                    const resumoEncontrado = dados[0].RESUMO;
-                    document.getElementById('textoRetorno').value = resumoEncontrado;
-                    carregarCTO(); 
-                } else {
-                    const nomesEncontrados = dados.map(item => item.CTO).join('\n- ');
-                    await showCustomModal(`Encontrei ${dados.length} caixas que contêm "${ctoNome}":\n\n- ${nomesEncontrados}\n\nPor favor, digite mais números/letras para eu saber qual é a certa.`, false);
-                }
-            } else {
-                await showCustomModal(`Nenhuma caixa encontrada contendo "${ctoNome}".`, false);
-            }
-        } catch (erro) {
-            console.error("Erro ao buscar:", erro);
-            await showCustomModal("Erro ao conectar com o banco de dados. Verifique a internet.", false);
-        } finally {
-            btnBusca.innerHTML = textoOriginal;
-        }
-    }
-
-
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
-</script>
 
 <script src="script.js"></script>
-
 
 </body>
 </html>

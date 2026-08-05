@@ -1,9 +1,10 @@
-const CACHE_NAME = 'inativos-v18-sons';
+const CACHE_NAME = 'inativos-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon.png',
+  './script.js',
   './erro_digital.mp3',
   './click_tec.mp3',
   './sucesso.mp3',
@@ -12,9 +13,7 @@ const ASSETS = [
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
   self.skipWaiting();
 });
@@ -24,9 +23,7 @@ self.addEventListener('activate', (e) => {
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+          if (key !== CACHE_NAME) return caches.delete(key);
         })
       );
     })
@@ -34,17 +31,14 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Busca: Lógica inteligente
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-
-  // SE for uma requisição para a API do Excel (SheetDB), vai direto para a rede
-  if (url.hostname.includes('sheetdb.io')) {
+  
+  if (url.hostname.includes('sheetdb.io') || url.hostname.includes('googleapis.com')) {
     e.respondWith(fetch(e.request));
     return;
   }
-
-  // Para o restante (arquivos do app), usa o Cache primeiro
+  
   e.respondWith(
     caches.match(e.request).then((response) => {
       return response || fetch(e.request);
