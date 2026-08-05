@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>I__NATIVOS v2 — Gerenciador CTO</title>
-    
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -26,7 +26,7 @@
             --success-soft: #dcfce7;
             --info: #6366f1;
             --info-soft: #e0e7ff;
-            
+
             --bg: #0f172a;
             --surface: #1e293b;
             --surface-hover: #334155;
@@ -43,7 +43,7 @@
             --radius-lg: 16px;
             --radius-xl: 24px;
         }
-        
+
         body.light-mode {
             --bg: #f8fafc;
             --surface: #ffffff;
@@ -57,9 +57,9 @@
             --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
-        
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
@@ -69,14 +69,14 @@
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
-        
+
         .app-container {
             max-width: 680px;
             margin: 0 auto;
             padding: 16px;
             padding-bottom: 100px;
         }
-        
+
         /* Header */
         .app-header {
             display: flex;
@@ -85,13 +85,13 @@
             margin-bottom: 24px;
             padding: 8px 4px;
         }
-        
+
         .brand {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        
+
         .brand-icon {
             width: 44px;
             height: 44px;
@@ -103,26 +103,26 @@
             font-size: 1.4rem;
             box-shadow: var(--shadow);
         }
-        
+
         .brand-text h1 {
             font-size: 1.25rem;
             font-weight: 800;
             letter-spacing: -0.02em;
             line-height: 1.2;
         }
-        
+
         .brand-text span {
             font-size: 0.75rem;
             color: var(--text-secondary);
             font-weight: 500;
         }
-        
+
         .header-actions {
             display: flex;
             gap: 8px;
             align-items: center;
         }
-        
+
         .icon-btn {
             width: 40px;
             height: 40px;
@@ -138,15 +138,15 @@
             transition: all 0.2s;
             position: relative;
         }
-        
+
         .icon-btn:hover {
             background: var(--surface-hover);
             color: var(--text-primary);
             transform: translateY(-1px);
         }
-        
+
         .icon-btn:active { transform: scale(0.95); }
-        
+
         .status-pill {
             display: flex;
             align-items: center;
@@ -159,7 +159,7 @@
             font-weight: 600;
             border: 1px solid rgba(34, 197, 94, 0.2);
         }
-        
+
         .status-dot {
             width: 7px;
             height: 7px;
@@ -168,12 +168,12 @@
             box-shadow: 0 0 8px var(--success);
             animation: pulse-dot 2s infinite;
         }
-        
+
         @keyframes pulse-dot {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
+
         /* Cards */
         .card {
             background: var(--surface);
@@ -185,21 +185,21 @@
             transition: all 0.3s;
             animation: slideUp 0.4s ease-out both;
         }
-        
+
         .card:hover { box-shadow: var(--shadow-lg); }
-        
+
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
         }
-        
+
         .card-title {
             font-size: 0.875rem;
             font-weight: 600;
@@ -207,30 +207,30 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        
+
         .badge {
             font-size: 0.7rem;
             padding: 3px 8px;
             border-radius: 999px;
             font-weight: 700;
         }
-        
+
         .badge-green { background: var(--success-soft); color: #166534; }
         .badge-red { background: var(--danger-soft); color: #991b1b; }
         .badge-yellow { background: var(--warning-soft); color: #92400e; }
         .badge-blue { background: var(--info-soft); color: #3730a3; }
-        
+
         body.light-mode .badge-green { color: #166534; }
         body.light-mode .badge-red { color: #991b1b; }
         body.light-mode .badge-yellow { color: #92400e; }
         body.light-mode .badge-blue { color: #3730a3; }
-        
+
         /* Inputs */
         .input-group {
             position: relative;
             margin-bottom: 12px;
         }
-        
+
         .input-field {
             width: 100%;
             padding: 14px 16px;
@@ -244,14 +244,14 @@
             transition: all 0.2s;
             outline: none;
         }
-        
+
         .input-field:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
-        
+
         .input-field::placeholder { color: var(--text-muted); }
-        
+
         .input-icon {
             position: absolute;
             right: 14px;
@@ -259,15 +259,25 @@
             transform: translateY(-50%);
             color: var(--text-muted);
             font-size: 1.1rem;
-            pointer-events: none;
+            cursor: pointer;
+            padding: 8px;
+            margin: -8px;
+            border-radius: 50%;
+            transition: all 0.2s;
+            z-index: 2;
         }
-        
+
+        .input-icon:hover {
+            color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
         .input-error {
             border-color: var(--danger) !important;
             background: rgba(239, 68, 68, 0.05) !important;
             animation: shake 0.4s ease-in-out;
         }
-        
+
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             20% { transform: translateX(-6px); }
@@ -275,7 +285,7 @@
             60% { transform: translateX(-4px); }
             80% { transform: translateX(4px); }
         }
-        
+
         /* Buttons */
         .btn {
             display: inline-flex;
@@ -293,48 +303,48 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-1px);
             box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
         }
-        
+
         .btn-primary:active { transform: translateY(0); }
-        
+
         .btn-danger {
             background: linear-gradient(135deg, var(--danger), #b91c1c);
             color: white;
             box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
         }
-        
+
         .btn-ghost {
             background: transparent;
             color: var(--text-secondary);
             border: 1px solid var(--border);
         }
-        
+
         .btn-ghost:hover {
             background: var(--surface-hover);
             color: var(--text-primary);
         }
-        
+
         .btn-sm { padding: 8px 14px; font-size: 0.8rem; }
         .btn-block { width: 100%; }
-        
+
         .btn-row {
             display: flex;
             gap: 10px;
             margin-top: 14px;
         }
-        
+
         .btn-row .btn { flex: 1; }
-        
+
         /* Port Row */
         .port-row {
             display: flex;
@@ -348,17 +358,17 @@
             transition: all 0.2s;
             animation: slideUp 0.3s ease-out both;
         }
-        
+
         .port-row:hover {
             border-color: var(--border);
             background: var(--surface-hover);
         }
-        
+
         .port-row:focus-within {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
-        
+
         .port-num {
             width: 36px;
             height: 36px;
@@ -374,7 +384,7 @@
             flex-shrink: 0;
             border: 1px solid var(--border);
         }
-        
+
         .port-input {
             flex: 1;
             background: transparent;
@@ -386,14 +396,14 @@
             outline: none;
             min-width: 0;
         }
-        
+
         .port-input::placeholder { color: var(--text-muted); }
-        
+
         .port-actions {
             display: flex;
             gap: 4px;
         }
-        
+
         .port-btn {
             width: 32px;
             height: 32px;
@@ -408,16 +418,16 @@
             font-size: 0.85rem;
             transition: all 0.15s;
         }
-        
+
         .port-btn:hover {
             transform: scale(1.1);
             color: var(--text-primary);
         }
-        
+
         .port-btn.active-warn { background: var(--warning); color: white; border-color: var(--warning); }
         .port-btn.active-danger { background: var(--danger); color: white; border-color: var(--danger); }
         .port-btn.active-info { background: var(--info); color: white; border-color: var(--info); }
-        
+
         /* CTO Visualizer */
         .cto-grid {
             display: grid;
@@ -425,7 +435,7 @@
             gap: 10px;
             margin-bottom: 16px;
         }
-        
+
         .cto-slot {
             aspect-ratio: 1;
             border-radius: var(--radius);
@@ -445,21 +455,21 @@
             overflow: hidden;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
         }
-        
+
         body.light-mode .cto-slot {
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
         }
-        
+
         .cto-slot:hover {
             transform: translateY(-3px) scale(1.05);
             z-index: 2;
         }
-        
+
         .cto-slot .slot-num {
             font-size: 1.1rem;
             margin-bottom: 2px;
         }
-        
+
         .cto-slot .slot-label {
             font-size: 0.6rem;
             opacity: 0.8;
@@ -469,21 +479,21 @@
             white-space: nowrap;
             padding: 0 4px;
         }
-        
+
         .cto-slot.occupied {
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             color: white;
             border-color: rgba(255,255,255,0.2);
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
-        
+
         .cto-slot.free {
             background: linear-gradient(135deg, #22c55e, #16a34a);
             color: white;
             border-color: rgba(255,255,255,0.2);
             box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
         }
-        
+
         .cto-slot.defect {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             color: white;
@@ -491,28 +501,28 @@
             box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
             animation: pulse-red 2s infinite;
         }
-        
+
         @keyframes pulse-red {
             0%, 100% { box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); }
             50% { box-shadow: 0 4px 20px rgba(220, 38, 38, 0.5); }
         }
-        
+
         .cto-slot.unidentified {
             background: linear-gradient(135deg, #f59e0b, #d97706);
             color: white;
             border-color: rgba(255,255,255,0.2);
             box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
         }
-        
+
         .cto-slot.marked-delete {
             animation: blink-delete 1s infinite;
         }
-        
+
         @keyframes blink-delete {
             0%, 100% { background: #ef4444; transform: scale(1); }
             50% { background: #7f1d1d; transform: scale(1.08); }
         }
-        
+
         /* Stats Bar */
         .stats-row {
             display: grid;
@@ -520,7 +530,7 @@
             gap: 8px;
             margin-bottom: 16px;
         }
-        
+
         .stat-item {
             text-align: center;
             padding: 10px 6px;
@@ -528,13 +538,13 @@
             border-radius: var(--radius);
             border: 1px solid var(--border);
         }
-        
+
         .stat-value {
             font-size: 1.25rem;
             font-weight: 800;
             font-family: 'JetBrains Mono', monospace;
         }
-        
+
         .stat-label {
             font-size: 0.65rem;
             color: var(--text-muted);
@@ -542,12 +552,12 @@
             letter-spacing: 0.05em;
             margin-top: 2px;
         }
-        
+
         .stat-green { color: var(--success); }
         .stat-red { color: var(--danger); }
         .stat-yellow { color: var(--warning); }
         .stat-blue { color: var(--primary); }
-        
+
         /* Progress Bar */
         .progress-track {
             width: 100%;
@@ -557,7 +567,7 @@
             overflow: hidden;
             margin-top: 12px;
         }
-        
+
         .progress-fill {
             height: 100%;
             border-radius: 999px;
@@ -565,7 +575,7 @@
             transition: width 0.5s ease;
             position: relative;
         }
-        
+
         .progress-fill::after {
             content: '';
             position: absolute;
@@ -575,7 +585,7 @@
             width: 20px;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
         }
-        
+
         /* Legend */
         .legend {
             display: flex;
@@ -587,19 +597,19 @@
             padding-top: 12px;
             border-top: 1px solid var(--border);
         }
-        
+
         .legend-item {
             display: flex;
             align-items: center;
             gap: 5px;
         }
-        
+
         .legend-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
         }
-        
+
         /* Modal */
         .modal-overlay {
             position: fixed;
@@ -614,9 +624,9 @@
             transition: opacity 0.25s;
             padding: 20px;
         }
-        
+
         .modal-overlay.show { display: flex; opacity: 1; }
-        
+
         .modal-box {
             background: var(--surface);
             border-radius: var(--radius-lg);
@@ -628,11 +638,11 @@
             transform: scale(0.9) translateY(10px);
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        
+
         .modal-overlay.show .modal-box {
             transform: scale(1) translateY(0);
         }
-        
+
         .modal-icon {
             width: 56px;
             height: 56px;
@@ -643,18 +653,18 @@
             font-size: 1.5rem;
             margin: 0 auto 16px;
         }
-        
+
         .modal-icon.warn { background: var(--warning-soft); }
         .modal-icon.danger { background: var(--danger-soft); }
         .modal-icon.info { background: var(--info-soft); }
-        
+
         .modal-title {
             text-align: center;
             font-size: 1.1rem;
             font-weight: 700;
             margin-bottom: 8px;
         }
-        
+
         .modal-text {
             text-align: center;
             color: var(--text-secondary);
@@ -663,14 +673,14 @@
             margin-bottom: 20px;
             white-space: pre-wrap;
         }
-        
+
         .modal-actions {
             display: flex;
             gap: 10px;
         }
-        
+
         .modal-actions .btn { flex: 1; }
-        
+
         /* Toast */
         .toast {
             position: fixed;
@@ -694,16 +704,16 @@
             pointer-events: none;
             max-width: 90%;
         }
-        
+
         .toast.show {
             transform: translateX(-50%) translateY(0);
             opacity: 1;
         }
-        
+
         .toast.error { border-left: 4px solid var(--danger); }
         .toast.success { border-left: 4px solid var(--success); }
         .toast.warn { border-left: 4px solid var(--warning); }
-        
+
         /* Collapsible Section */
         .collapse-header {
             display: flex;
@@ -713,29 +723,29 @@
             padding: 4px 0;
             user-select: none;
         }
-        
+
         .collapse-icon {
             transition: transform 0.3s;
             color: var(--text-muted);
         }
-        
+
         .collapse-header.open .collapse-icon {
             transform: rotate(180deg);
         }
-        
+
         .collapse-body {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out, opacity 0.3s;
             opacity: 0;
         }
-        
+
         .collapse-body.open {
             max-height: 500px;
             opacity: 1;
             margin-top: 14px;
         }
-        
+
         /* Textarea */
         .textarea-field {
             width: 100%;
@@ -751,12 +761,12 @@
             outline: none;
             transition: all 0.2s;
         }
-        
+
         .textarea-field:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
-        
+
         /* Preview */
         .preview-box {
             background: var(--bg);
@@ -772,12 +782,12 @@
             overflow-y: auto;
             display: none;
         }
-        
+
         .preview-box.show { display: block; }
-        
+
         /* Tooltip */
         [data-tooltip] { position: relative; }
-        
+
         [data-tooltip]::after {
             content: attr(data-tooltip);
             position: absolute;
@@ -797,19 +807,19 @@
             box-shadow: var(--shadow);
             z-index: 100;
         }
-        
+
         [data-tooltip]:hover::after {
             opacity: 1;
             transform: translateX(-50%) scale(1);
             bottom: 130%;
         }
-        
+
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-        
+
         /* Keyboard hint */
         .kbd {
             display: inline-block;
@@ -821,7 +831,7 @@
             font-size: 0.75rem;
             color: var(--text-muted);
         }
-        
+
         /* Responsive */
         @media (max-width: 480px) {
             .app-container { padding: 12px; }
@@ -861,12 +871,12 @@
             <span class="card-title">📌 Identificação</span>
             <span class="badge badge-blue" id="savedIndicator" style="display:none">Salvo</span>
         </div>
-        
+
         <div class="input-group">
-            <input type="text" id="ctoName" class="input-field" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
-            <span class="input-icon">🔍</span>
+            <input type="text" id="ctoName" class="input-field" placeholder="Ex: CTOMO 16.1.6" autocomplete="off" onkeydown="if(event.key==='Enter') buscarBancoDados()">
+            <span class="input-icon" onclick="buscarBancoDados()" title="Buscar no Excel">🔍</span>
         </div>
-        
+
         <div class="btn-row">
             <button class="btn btn-primary btn-block" onclick="copyToClipboard()">
                 <span>📋</span> Copiar Resumo
@@ -875,7 +885,7 @@
                 💾
             </button>
         </div>
-        
+
         <div class="btn-row" style="margin-top:8px">
             <button class="btn btn-ghost btn-sm btn-block" onclick="clearAll()">
                 🗑️ Limpar Tudo
@@ -889,7 +899,7 @@
             <span class="card-title">📊 Ocupação</span>
             <span class="badge" id="occupancyBadge">0%</span>
         </div>
-        
+
         <div class="stats-row">
             <div class="stat-item">
                 <div class="stat-value stat-green" id="statFree">16</div>
@@ -908,7 +918,7 @@
                 <div class="stat-label">S/ Ident.</div>
             </div>
         </div>
-        
+
         <div class="progress-track">
             <div class="progress-fill" id="progressBar" style="width: 0%"></div>
         </div>
@@ -929,16 +939,16 @@
             <span class="card-title">🗺️ Mapa da CTO</span>
             <button class="icon-btn" style="width:32px;height:32px;font-size:0.9rem" onclick="togglePreview()" data-tooltip="Ver texto">📄</button>
         </div>
-        
+
         <div class="cto-grid" id="ctoDrawing"></div>
-        
+
         <div class="legend">
             <span class="legend-item"><span class="legend-dot" style="background:var(--success)"></span> Livre</span>
             <span class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span> Defeito</span>
             <span class="legend-item"><span class="legend-dot" style="background:var(--warning)"></span> S/ Ident.</span>
             <span class="legend-item"><span class="legend-dot" style="background:var(--primary)"></span> Ocupada</span>
         </div>
-        
+
         <div class="preview-box" id="previewArea"></div>
     </div>
 
@@ -948,10 +958,10 @@
             <span class="card-title">⚙️ Ferramentas da Central</span>
             <span class="collapse-icon">▼</span>
         </div>
-        
+
         <div class="collapse-body" id="areaCentral">
             <textarea id="textoRetorno" class="textarea-field" rows="3" placeholder="Cole aqui a mensagem da Central ou dados da planilha..."></textarea>
-            
+
             <div class="btn-row" style="margin-top:12px">
                 <button class="btn btn-danger btn-sm" style="flex:1" onclick="analisarRetorno()">
                     🔍 Analisar Inativos
@@ -960,7 +970,7 @@
                     ♻️ Carregar CTO
                 </button>
             </div>
-            
+
             <div class="btn-row" style="margin-top:8px">
                 <button class="btn btn-ghost btn-sm btn-block" onclick="importData()">
                     📥 Importar JSON
