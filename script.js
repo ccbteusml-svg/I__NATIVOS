@@ -1,29 +1,54 @@
 // ==========================================
-// I__NATIVOS v2.1 — Gerenciador CTO
+// I__NATIVOS v3.1 — Gerenciador CTO
+// Otimizado para uso em campo: sol, noite, postes
 // ==========================================
 
 const SHEETDB_URL = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
 const TOTAL_PORTS = 16;
-const STORAGE_KEY = 'inativos_v2';
+const STORAGE_KEY = 'inativos_v3';
 const SPECIAL_VALUES = ['Livre', 'Defeito', 'Sem ident.', 'Reserva', 'Vago'];
 
 let portsData = new Array(TOTAL_PORTS).fill('');
-let isLightMode = false;
+let currentTheme = 'dark';
 
-// Sons
-const sfxErro = new Audio('erro_digital.mp3');
-const sfxClick = new Audio('click_tec.mp3');
-const sfxSucesso = new Audio('sucesso.mp3');
-const sfxLixo = new Audio('trash.mp3');
+// Sons com fallback seguro
+let sfxErro, sfxClick, sfxSucesso, sfxLixo;
 
-sfxErro.volume = 0.5;
-sfxClick.volume = 0.3;
+function initAudio() {
+    try {
+        sfxErro = new Audio('erro_digital.mp3');
+        sfxClick = new Audio('click_tec.mp3');
+        sfxSucesso = new Audio('sucesso.mp3');
+        sfxLixo = new Audio('trash.mp3');
+        sfxErro.volume = 0.6;
+        sfxClick.volume = 0.4;
+        sfxSucesso.volume = 0.5;
+        sfxLixo.volume = 0.5;
+    } catch (e) {
+        console.warn('Audio não suportado');
+    }
+}
+
+function playSound(audio) {
+    if (!audio) return;
+    try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+    } catch (e) {}
+}
+
+function vibrate(pattern) {
+    if (navigator.vibrate) {
+        navigator.vibrate(pattern);
+    }
+}
 
 // ==========================================
 // INICIALIZAÇÃO
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    initAudio();
     renderPorts();
     loadData();
     updateStats();
@@ -37,6 +62,41 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('online', () => showToast('🌐 Conexão restaurada', 'success'));
     window.addEventListener('offline', () => showToast('📴 Modo offline ativado', 'warn'));
 });
+
+// ==========================================
+// TEMAS
+// ==========================================
+
+function setTheme(theme) {
+    currentTheme = theme;
+    document.body.classList.remove('light-mode', 'sun-mode', 'neon-mode');
+
+    if (theme === 'sun') {
+        document.body.classList.add('sun-mode');
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff');
+    } else if (theme === 'neon') {
+        document.body.classList.add('neon-mode');
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#050508');
+    } else {
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0a0a0f');
+    }
+
+    document.querySelectorAll('.theme-dot').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('theme' + theme.charAt(0).toUpperCase() + theme.slice(1))?.classList.add('active');
+
+    autoSave();
+    playSound(sfxClick);
+    vibrate(20);
+}
+
+function loadTheme() {
+    try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (data.theme) {
+            setTheme(data.theme);
+        }
+    } catch (e) {}
+}
 
 // ==========================================
 // RENDERIZAÇÃO
@@ -57,9 +117,9 @@ function renderPorts() {
                        oninput="updateData(${i}, this.value)"
                        onkeydown="handlePortKey(event, ${i})">
                 <div class="port-actions">
-                    <button class="port-btn" id="btn-u-${i}" onclick="setQuickAction(${i}, 'Sem ident.')" data-tooltip="Sem identificação">?</button>
-                    <button class="port-btn" id="btn-d-${i}" onclick="setQuickAction(${i}, 'Defeito')" data-tooltip="Defeito">!</button>
-                    <button class="port-btn" id="btn-e-${i}" onclick="setQuickAction(${i}, 'Livre')" data-tooltip="Livre">∞</button>
+                    <button class="port-btn" id="btn-u-${i}" onclick="setQuickAction(${i}, 'Sem ident.')" data-tooltip="Sem identificação" title="Sem identificação">?</button>
+                    <button class="port-btn" id="btn-d-${i}" onclick="setQuickAction(${i}, 'Defeito')" data-tooltip="Defeito" title="Defeito">!</button>
+                    <button class="port-btn" id="btn-e-${i}" onclick="setQuickAction(${i}, 'Livre')" data-tooltip="Livre" title="Livre">∞</button>
                 </div>
             </div>
         `;
@@ -74,6 +134,8 @@ function renderPorts() {
 
 function updateData(index, value) {
     portsData[index - 1] = value;
+    const input = document.getElementById(`input-${index}`);
+    if (input) input.title = value || '';
     updateButtonStyles(index, value);
     updateStats();
     updateVisualizer();
@@ -100,10 +162,8 @@ function setQuickAction(index, text) {
         updateData(index, text);
     }
 
-    sfxClick.currentTime = 0;
-    sfxClick.play().catch(() => {});
-
-    if (navigator.vibrate) navigator.vibrate(15);
+    playSound(sfxClick);
+    vibrate(25);
 }
 
 function updateButtonStyles(index, value) {
@@ -170,7 +230,7 @@ function updateVisualizer() {
             label = 'S/ Ident.';
         } else {
             cls = 'occupied';
-            label = v.length > 6 ? v.substring(0, 5) + '…' : v;
+            label = v.length > 10 ? v.substring(0, 9) + '…' : v;
         }
 
         html += `
@@ -191,6 +251,7 @@ function focusPort(index) {
         input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         input.parentElement.style.animation = 'shake 0.3s';
         setTimeout(() => input.parentElement.style.animation = '', 300);
+        vibrate(30);
     }
 }
 
@@ -212,6 +273,7 @@ function updatePreview() {
 function togglePreview() {
     const preview = document.getElementById('previewArea');
     preview.classList.toggle('show');
+    playSound(sfxClick);
 }
 
 // ==========================================
@@ -245,9 +307,8 @@ function checkDuplicates() {
 
     if (hasDuplicate) {
         showToast('⚠️ Código duplicado detectado!', 'error');
-        sfxErro.currentTime = 0;
-        sfxErro.play().catch(() => {});
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        playSound(sfxErro);
+        vibrate([120, 60, 120]);
     }
 }
 
@@ -262,8 +323,8 @@ async function copyToClipboard() {
     try {
         await navigator.clipboard.writeText(text);
         showToast('✅ Resumo copiado!', 'success');
-        sfxSucesso.currentTime = 0;
-        sfxSucesso.play().catch(() => {});
+        playSound(sfxSucesso);
+        vibrate([50, 30, 50]);
 
         if (cto) {
             const save = await showModal('Salvar no Excel?', `Deseja salvar/atualizar <b>${cto}</b> na planilha?`, true, '💾');
@@ -274,6 +335,7 @@ async function copyToClipboard() {
         }
     } catch (e) {
         showToast('Erro ao copiar. Tente manualmente.', 'error');
+        playSound(sfxErro);
     }
 }
 
@@ -281,8 +343,8 @@ async function clearAll() {
     const confirm = await showModal('Limpar CTO?', 'Todos os dados serão apagados.\nEsta ação não pode ser desfeita.', true, '⚠️');
 
     if (confirm) {
-        sfxLixo.currentTime = 0;
-        sfxLixo.play().catch(() => {});
+        playSound(sfxLixo);
+        vibrate([100, 50, 100, 50, 100]);
 
         document.getElementById('ctoName').value = '';
         document.getElementById('textoRetorno').value = '';
@@ -336,9 +398,8 @@ async function analisarRetorno() {
 
     if (encontrados > 0) {
         showToast(`⚠️ ${encontrados} porta(s) marcada(s) para remoção!`, 'error');
-        sfxErro.currentTime = 0;
-        sfxErro.play().catch(() => {});
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+        playSound(sfxErro);
+        vibrate([200, 100, 200, 100, 200]);
     } else {
         showToast('Nenhum código bateu com as portas atuais.', 'warn');
     }
@@ -359,6 +420,7 @@ async function carregarCTO() {
 
     for (let i = 1; i <= TOTAL_PORTS; i++) {
         const regex = new RegExp(`P${i}\\s*➔\\s*(.+)`);
+
         const match = texto.match(regex);
         let val = '';
 
@@ -368,7 +430,10 @@ async function carregarCTO() {
         }
 
         const input = document.getElementById(`input-${i}`);
-        if (input) input.value = val;
+        if (input) {
+            input.value = val;
+            input.title = val || '';
+        }
         portsData[i-1] = val;
         updateButtonStyles(i, val);
     }
@@ -381,8 +446,85 @@ async function carregarCTO() {
 
     document.getElementById('textoRetorno').value = '';
     showToast('♻️ CTO carregada com sucesso!', 'success');
-    sfxSucesso.currentTime = 0;
-    sfxSucesso.play().catch(() => {});
+    playSound(sfxSucesso);
+    vibrate([60, 40, 60]);
+}
+
+// ==========================================
+// SELETOR DE CTO (LISTA DE RESULTADOS)
+// ==========================================
+
+function showCTOSelector(dados) {
+    const modal = document.getElementById('customModal');
+    const title = document.getElementById('modalTitle');
+    const text = document.getElementById('modalText');
+    const icon = document.getElementById('modalIcon');
+    const btnCancel = document.getElementById('modalBtnCancel');
+    const btnOk = document.getElementById('modalBtnOk');
+    const btnClose = document.getElementById('modalBtnClose');
+
+    title.textContent = `${dados.length} CTOs encontradas`;
+    icon.textContent = '📋';
+    icon.className = 'modal-icon info';
+    btnCancel.style.display = 'none';
+    btnOk.style.display = 'none';
+
+    let html = `<div style="display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;padding-right:4px;">`;
+    dados.forEach((item, idx) => {
+        const preview = item.RESUMO ? item.RESUMO.split('\n').slice(0, 3).join('\n') : 'Sem resumo';
+        html += `
+            <button class="btn btn-ghost" style="text-align:left;justify-content:flex-start;flex-direction:column;align-items:flex-start;padding:14px;gap:4px;height:auto;min-height:64px;" 
+                    onclick="loadSelectedCTO(${idx})">
+                <div style="font-weight:900;font-size:1.05rem;color:var(--text-primary);">${item.CTO}</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;white-space:pre-wrap;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%;line-height:1.3;">${preview}</div>
+            </button>
+        `;
+    });
+    html += `</div>`;
+    text.innerHTML = html;
+
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('show'));
+
+    window._ctoSelectorData = dados;
+
+    const close = () => {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            btnOk.style.display = 'block';
+            text.innerHTML = '';
+            window._ctoSelectorData = null;
+            btnClose.onclick = null;
+            modal.onclick = null;
+        }, 250);
+    };
+
+    btnClose.onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+}
+
+function loadSelectedCTO(idx) {
+    const dados = window._ctoSelectorData;
+    if (!dados || !dados[idx]) return;
+
+    const item = dados[idx];
+    document.getElementById('textoRetorno').value = item.RESUMO;
+
+    // Fecha modal
+    const modal = document.getElementById('customModal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+        document.getElementById('modalBtnOk').style.display = 'block';
+        document.getElementById('modalText').innerHTML = '';
+        window._ctoSelectorData = null;
+    }, 250);
+
+    carregarCTO();
+    showToast(`✅ CTO "${item.CTO}" carregada!`, 'success');
+    playSound(sfxSucesso);
+    vibrate([50, 30, 50]);
 }
 
 // ==========================================
@@ -393,8 +535,9 @@ function exportData() {
     const data = {
         cto: document.getElementById('ctoName').value,
         ports: portsData,
+        theme: currentTheme,
         timestamp: new Date().toISOString(),
-        version: '2.0'
+        version: '3.1'
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -406,8 +549,8 @@ function exportData() {
     URL.revokeObjectURL(url);
 
     showToast('💾 Backup exportado!', 'success');
-    sfxSucesso.currentTime = 0;
-    sfxSucesso.play().catch(() => {});
+    playSound(sfxSucesso);
+    vibrate([50, 30, 50]);
 }
 
 function importData() {
@@ -423,11 +566,15 @@ function importData() {
             const data = JSON.parse(text);
 
             if (data.cto) document.getElementById('ctoName').value = data.cto;
+            if (data.theme) setTheme(data.theme);
             if (data.ports && Array.isArray(data.ports)) {
                 portsData = data.ports.slice(0, TOTAL_PORTS);
                 portsData.forEach((val, i) => {
                     const input = document.getElementById(`input-${i+1}`);
-                    if (input) input.value = val;
+                    if (input) {
+                        input.value = val;
+                        input.title = val || '';
+                    }
                     updateButtonStyles(i+1, val);
                 });
                 updateStats();
@@ -438,10 +585,11 @@ function importData() {
             }
 
             showToast('📥 Dados importados com sucesso!', 'success');
-            sfxSucesso.currentTime = 0;
-            sfxSucesso.play().catch(() => {});
+            playSound(sfxSucesso);
+            vibrate([60, 40, 60]);
         } catch (err) {
             showToast('Erro ao importar arquivo.', 'error');
+            playSound(sfxErro);
         }
     };
     input.click();
@@ -455,7 +603,7 @@ function autoSave() {
     const data = {
         cto: document.getElementById('ctoName').value,
         ports: portsData,
-        theme: isLightMode ? 'light' : 'dark',
+        theme: currentTheme,
         savedAt: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -474,6 +622,7 @@ function loadData() {
                 const input = document.getElementById(`input-${i+1}`);
                 if (input) {
                     input.value = val;
+                    input.title = val || '';
                     updateButtonStyles(i+1, val);
                 }
             });
@@ -481,30 +630,6 @@ function loadData() {
     } catch (e) {
         console.error('Erro ao carregar dados:', e);
     }
-}
-
-// ==========================================
-// TEMA
-// ==========================================
-
-function toggleTheme() {
-    isLightMode = !isLightMode;
-    document.body.classList.toggle('light-mode', isLightMode);
-    document.getElementById('themeToggle').textContent = isLightMode ? '🌙' : '☀️';
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', isLightMode ? '#f8fafc' : '#0f172a');
-    autoSave();
-}
-
-function loadTheme() {
-    try {
-        const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        if (data.theme === 'light') {
-            isLightMode = true;
-            document.body.classList.add('light-mode');
-            document.getElementById('themeToggle').textContent = '🌙';
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f8fafc');
-        }
-    } catch (e) {}
 }
 
 // ==========================================
@@ -516,6 +641,7 @@ async function buscarBancoDados() {
 
     if (!ctoNome) {
         showToast('Digite um nome para buscar!', 'warn');
+        vibrate(60);
         return;
     }
 
@@ -535,16 +661,19 @@ async function buscarBancoDados() {
                 document.getElementById('textoRetorno').value = dados[0].RESUMO;
                 await carregarCTO();
                 showToast(`✅ CTO "${dados[0].CTO}" carregada!`, 'success');
+                playSound(sfxSucesso);
             } else {
-                const nomes = dados.map(item => item.CTO).join('\n- ');
-                await showModal('Múltiplos resultados', `Encontrei ${dados.length} caixas:\n\n- ${nomes}\n\nDigite mais caracteres para refinar.`, false, '🔍');
+                showCTOSelector(dados);
             }
         } else {
             showToast(`Nenhuma caixa encontrada com "${ctoNome}"`, 'warn');
+            vibrate([80, 40]);
         }
     } catch (erro) {
         console.error('Erro na busca:', erro);
         showToast('Erro ao conectar com o banco de dados. Verifique a internet.', 'error');
+        playSound(sfxErro);
+        vibrate([100, 50, 100]);
     } finally {
         if (icon) icon.textContent = original;
     }
@@ -589,6 +718,7 @@ async function salvarEmBackground() {
     } catch (error) {
         console.error("Erro no background save:", error);
         showToast('Erro ao sincronizar com o Excel.', 'error');
+        playSound(sfxErro);
     }
 }
 
@@ -605,8 +735,10 @@ function showModal(title, text, isConfirm = false, icon = 'ℹ️') {
 
         const btnCancel = document.getElementById('modalBtnCancel');
         const btnOk = document.getElementById('modalBtnOk');
+        const btnClose = document.getElementById('modalBtnClose');
 
         btnCancel.style.display = isConfirm ? 'block' : 'none';
+        btnOk.style.display = 'block';
         btnOk.textContent = isConfirm ? 'Confirmar' : 'OK';
 
         modal.style.display = 'flex';
@@ -618,6 +750,7 @@ function showModal(title, text, isConfirm = false, icon = 'ℹ️') {
                 modal.style.display = 'none';
                 btnOk.onclick = null;
                 btnCancel.onclick = null;
+                btnClose.onclick = null;
                 modal.onclick = null;
                 resolve(result);
             }, 250);
@@ -625,6 +758,7 @@ function showModal(title, text, isConfirm = false, icon = 'ℹ️') {
 
         btnOk.onclick = () => close(true);
         btnCancel.onclick = () => close(false);
+        btnClose.onclick = () => close(false);
         modal.onclick = (e) => {
             if (e.target === modal && !isConfirm) close(true);
         };
@@ -646,7 +780,7 @@ function showToast(message, type = 'info') {
 
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 3000);
+    }, 3500);
 }
 
 // ==========================================
@@ -656,6 +790,7 @@ function showToast(message, type = 'info') {
 function toggleCollapse(header, id) {
     header.classList.toggle('open');
     document.getElementById(id).classList.toggle('open');
+    playSound(sfxClick);
 }
 
 // ==========================================
@@ -679,8 +814,8 @@ function setupKeyboardShortcuts() {
                 e.preventDefault();
                 autoSave();
                 showToast('💾 Dados salvos localmente!', 'success');
-                sfxSucesso.currentTime = 0;
-                sfxSucesso.play().catch(() => {});
+                playSound(sfxSucesso);
+                vibrate([40, 20, 40]);
                 break;
             case 'c':
                 e.preventDefault();

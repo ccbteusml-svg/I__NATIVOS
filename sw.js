@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inativos-v2-1';
+const CACHE_NAME = 'inativos-v7';
 const ASSETS = [
   './',
   './index.html',
