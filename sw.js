@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inativos-v7';
+const CACHE_NAME = 'inativos-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -33,12 +33,12 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-
+  
   if (url.hostname.includes('sheetdb.io') || url.hostname.includes('googleapis.com')) {
     e.respondWith(fetch(e.request));
     return;
   }
-
+  
   e.respondWith(
     caches.match(e.request).then((response) => {
       return response || fetch(e.request);
