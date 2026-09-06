@@ -1,90 +1,163 @@
 // ==========================================
-// I__NATIVOS v3.2 — Gerenciador CTO
-// Correção: busca fuzzy endurecida + parser robusto para planilhas
+// I__NATIVOS v4.0 — Gerenciador CTO Mobile-First
+// Refatoração completa: IndexedDB, Bottom Sheets, Swipe, Wake Lock, Web Share, Speech
 // ==========================================
 
 const SHEETDB_URL = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
 const TOTAL_PORTS = 16;
-const STORAGE_KEY = 'inativos_v3';
-const SPECIAL_VALUES = ['Livre', 'Defeito', 'Sem ident.', 'Reserva', 'Vago'];
+const STORAGE_KEY = 'inativos_v4';
+const DB_NAME = 'InativosDB';
+const DB_VERSION = 1;
+const SPECIAL_VALUES = ['Livre','Defeito','Sem ident.','Reserva','Vago'];
 
 let portsData = new Array(TOTAL_PORTS).fill('');
 let currentTheme = 'dark';
-let ctoCache = []; // Cache local de todas as CTOs
+let ctoCache = [];
+let lastEditedPort = null;
+let focusPortIndex = 0;
+let focusModeActive = false;
+let diffData = null;
+let deferredPrompt = null;
+let wakeLock = null;
+let audioInitialized = false;
+let saveTimeout = null;
+let snapshotInterval = null;
+let syncQueue = [];
+let isOnline = navigator.onLine;
 
-// Sons com fallback seguro
+// Sons (lazy load)
 let sfxErro, sfxClick, sfxSucesso, sfxLixo;
 
+// IndexedDB
+let db = null;
+
+// Promises para bottom sheets
+let confirmResolve = null;
+let alertResolve = null;
+
+// ==========================================
+// INDEXEDDB
+// ==========================================
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => { db = req.result; resolve(db); };
+        req.onupgradeneeded = (e) => {
+            const d = e.target.result;
+            if (!d.objectStoreNames.contains('syncQueue')) {
+                d.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+            }
+            if (!d.objectStoreNames.contains('ctoCache')) {
+                d.createObjectStore('ctoCache', { keyPath: 'normalizedCTO' });
+            }
+            if (!d.objectStoreNames.contains('snapshots')) {
+                d.createObjectStore('snapshots', { keyPath: 'timestamp' });
+            }
+            if (!d.objectStoreNames.contains('recentCTOs')) {
+                d.createObjectStore('recentCTOs', { keyPath: 'cto' });
+            }
+        };
+    });
+}
+
+function dbPut(store, data) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite');
+        const st = tx.objectStore(store);
+        const req = st.put(data);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbGetAll(store) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly');
+        const st = tx.objectStore(store);
+        const req = st.getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbDelete(store, key) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite');
+        const st = tx.objectStore(store);
+        const req = st.delete(key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function dbClear(store) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite');
+        const st = tx.objectStore(store);
+        const req = st.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+// ==========================================
+// AUDIO (LAZY)
+// ==========================================
+
 function initAudio() {
+    if (audioInitialized) return;
     try {
         sfxErro = new Audio('erro_digital.mp3');
         sfxClick = new Audio('click_tec.mp3');
         sfxSucesso = new Audio('sucesso.mp3');
         sfxLixo = new Audio('trash.mp3');
-        sfxErro.volume = 0.6;
-        sfxClick.volume = 0.4;
-        sfxSucesso.volume = 0.5;
-        sfxLixo.volume = 0.5;
-    } catch (e) {
-        console.warn('Audio não suportado');
-    }
+        sfxErro.volume = 0.6; sfxClick.volume = 0.4;
+        sfxSucesso.volume = 0.5; sfxLixo.volume = 0.5;
+        audioInitialized = true;
+    } catch (e) { console.warn('Audio não suportado'); }
 }
 
 function playSound(audio) {
     if (!audio) return;
-    try {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-    } catch (e) {}
+    try { audio.currentTime = 0; audio.play().catch(()=>{}); } catch (e) {}
 }
+
+// ==========================================
+// VIBRATION PATTERNS
+// ==========================================
 
 function vibrate(pattern) {
-    if (navigator.vibrate) {
-        navigator.vibrate(pattern);
-    }
+    if (navigator.vibrate) navigator.vibrate(pattern);
 }
 
+function vibSuccess() { vibrate([50,30,50]); }
+function vibError() { vibrate([200,80,200,80,200]); }
+function vibWarn() { vibrate([100,50,100]); }
+function vibClick() { vibrate(20); }
+function vibLongPress() { vibrate(40); }
+
 // ==========================================
-// NORMALIZACAO CTO — CANONICA & ROBUSTA
+// NORMALIZAÇÃO CTO
 // ==========================================
 
-/**
- * Converte qualquer formato de CTO para padrao canonico.
- * Lida com: CTOMO 1.1.1 | MO 1-1-1 | CTO-MO4-1-6 | CTOMO8-8-3 | MO8-7-2 | CTOSEMNOME
- */
 function normalizarCTO(nome) {
     if (!nome) return '';
     let s = nome.toUpperCase().trim();
-
-    // Remove "CTO" isolado (com ou sem espaco)
     s = s.replace(/\bCTO\b\s*/g, '').trim();
-
-    // Se ainda comeca com CTO colado (ex: CTOMO, CTOSEMNOME, CTORPE)
-    if (s.startsWith('CTO') && s.length > 3) {
-        s = s.slice(3);
-    }
-
-    // Extrai prefixo alfabetico (MO, MZ, AB, TORPE, SEMNOME, etc.)
+    if (s.startsWith('CTO') && s.length > 3) s = s.slice(3);
     const prefixoMatch = s.match(/^[A-Z]+/);
     const prefixo = prefixoMatch ? prefixoMatch[0] : '';
-
-    // Pega tudo apos o prefixo
     let resto = prefixo ? s.slice(prefixo.length) : s;
-    // Limpa lixo inicial
     resto = resto.replace(/^[^A-Z0-9]+/i, '');
-    // Converte hifens em pontos
     resto = resto.replace(/-/g, '.');
-
-    // Extrai numeros
     const numeros = resto.match(/\d+/g) || [];
-
     if (!prefixo && numeros.length === 0) return s;
-
     const nums = numeros.join('.');
     return prefixo ? `${prefixo} ${nums}` : nums;
 }
 
-/** Gera variacoes possiveis de uma CTO para busca no banco */
 function gerarVariacoesCTO(nome) {
     const canonico = normalizarCTO(nome);
     if (!canonico) return [nome];
@@ -92,7 +165,6 @@ function gerarVariacoesCTO(nome) {
     const prefixo = partes[0];
     const nums = partes[1] || '';
     const numeros = nums.split('.');
-
     const v = new Set();
     v.add(canonico);
     v.add(`CTO${prefixo} ${nums}`);
@@ -105,48 +177,52 @@ function gerarVariacoesCTO(nome) {
     return Array.from(v);
 }
 
-/** Carrega todas as CTOs do SheetDB para memoria local */
+// ==========================================
+// CACHE CTOs (IndexedDB)
+// ==========================================
+
 async function carregarCacheCTOs() {
     try {
+        // Primeiro tenta do IndexedDB
+        const cached = await dbGetAll('ctoCache');
+        if (cached && cached.length > 0) {
+            ctoCache = cached.map(c => ({ CTO: c.cto, RESUMO: c.resumo }));
+            return ctoCache;
+        }
+        // Senão, busca da rede
         const res = await fetch(SHEETDB_URL);
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        ctoCache = await res.json();
+        const data = await res.json();
+        ctoCache = data;
+        // Salva no IndexedDB
+        for (const item of data) {
+            await dbPut('ctoCache', {
+                normalizedCTO: normalizarCTO(item.CTO || ''),
+                cto: item.CTO,
+                resumo: item.RESUMO
+            });
+        }
         return ctoCache;
     } catch (e) {
-        console.warn('Cache nao carregado:', e);
+        console.warn('Cache não carregado:', e);
         return [];
     }
 }
 
-/** Busca fuzzy no cache local — ENDURECIDA */
 function buscarFuzzyCTO(termo) {
     const termoNorm = normalizarCTO(termo);
     if (!termoNorm) return [];
-
     const termoNums = termoNorm.replace(/[^0-9.]/g, '');
     const termoPrefixo = termoNorm.match(/^[A-Z]+/)?.[0] || '';
-
     return ctoCache.filter(item => {
         const ctoNorm = normalizarCTO(item.CTO || '');
-
-        // Match exato na normalizacao canonica
         if (ctoNorm === termoNorm) return true;
-
         const ctoNums = ctoNorm.replace(/[^0-9.]/g, '');
         const ctoPrefixo = ctoNorm.match(/^[A-Z]+/)?.[0] || '';
-
-        // ENDURECIDO: se o usuario digitou um prefixo, SO aceita o MESMO prefixo
-        if (termoPrefixo && ctoPrefixo !== termoPrefixo) {
-            return false;
-        }
-
-        // Se nao digitou prefixo, permite qualquer um desde que os numeros batam
+        if (termoPrefixo && ctoPrefixo !== termoPrefixo) return false;
         if (termoNums) {
-            return ctoNums === termoNums ||
-                   ctoNums.startsWith(termoNums) ||
-                   termoNums.startsWith(ctoNums);
+            return ctoNums === termoNums || ctoNums.startsWith(termoNums) || termoNums.startsWith(ctoNums);
         }
-
         return true;
     }).sort((a, b) => {
         const aN = normalizarCTO(a.CTO);
@@ -161,929 +237,181 @@ function buscarFuzzyCTO(termo) {
     });
 }
 
-/** Autocomplete no campo de busca */
-function setupAutocomplete() {
-    const input = document.getElementById('ctoName');
-    let dropdown = document.getElementById('cto-suggestions');
-    if (!dropdown) {
-        dropdown = document.createElement('div');
-        dropdown.id = 'cto-suggestions';
-        input.parentElement.style.position = 'relative';
-        input.parentElement.appendChild(dropdown);
-    }
-
-    let debounce;
-    input.addEventListener('input', () => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => {
-            const val = input.value.trim();
-            if (val.length < 2) { dropdown.style.display = 'none'; return; }
-
-            if (ctoCache.length === 0) {
-                carregarCacheCTOs().then(() => mostrarSugestoes(val));
-            } else {
-                mostrarSugestoes(val);
-            }
-        }, 250);
-    });
-
-    function mostrarSugestoes(val) {
-        const matches = buscarFuzzyCTO(val).slice(0, 6);
-        if (matches.length === 0) { dropdown.style.display = 'none'; return; }
-
-        const termoNorm = normalizarCTO(val);
-
-        dropdown.innerHTML = matches.map(m => {
-            const ctoNorm = normalizarCTO(m.CTO || '');
-            const isExact = ctoNorm === termoNorm;
-            const preview = (m.RESUMO || '').split('\n').slice(0,2).join(' ').substring(0,60);
-            const exactStyle = isExact ? 'background:rgba(0,102,255,0.12);border-left:4px solid var(--primary);' : '';
-            const exactBadge = isExact ? ' <span style="color:var(--success);font-size:0.75rem;font-weight:800;">✓ EXATO</span>' : '';
-            return `<div class="sugestao-cto" onclick="selecionarCTO('${m.CTO.replace(/'/g, "\\'")}')" style="${exactStyle}">
-                <strong>${m.CTO}</strong>${exactBadge}
-                <small>${preview}...</small>
-            </div>`;
-        }).join('');
-        dropdown.style.display = 'block';
-    }
-
-    document.addEventListener('click', e => {
-        if (!input.parentElement.contains(e.target)) dropdown.style.display = 'none';
-    });
-}
-
-function selecionarCTO(nome) {
-    document.getElementById('ctoName').value = nome;
-    document.getElementById('cto-suggestions').style.display = 'none';
-    buscarBancoDados();
-}
-
 // ==========================================
-// INICIALIZACAO
+// RECENT CTOs
 // ==========================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    initAudio();
-    renderPorts();
-    loadData();
-    updateStats();
-    updateVisualizer();
-    updatePreview();
-    setupKeyboardShortcuts();
-    loadTheme();
-    setupAutocomplete();
-
-    setTimeout(() => document.getElementById('ctoName')?.focus(), 300);
-
-    window.addEventListener('online', () => showToast('🌐 Conexao restaurada', 'success'));
-    window.addEventListener('offline', () => showToast('📴 Modo offline ativado', 'warn'));
-});
-
-// ==========================================
-// TEMAS
-// ==========================================
-
-function setTheme(theme) {
-    currentTheme = theme;
-    document.body.classList.remove('light-mode', 'sun-mode', 'neon-mode');
-
-    if (theme === 'sun') {
-        document.body.classList.add('sun-mode');
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff');
-    } else if (theme === 'neon') {
-        document.body.classList.add('neon-mode');
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#050508');
-    } else {
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0a0a0f');
-    }
-
-    document.querySelectorAll('.theme-dot').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('theme' + theme.charAt(0).toUpperCase() + theme.slice(1))?.classList.add('active');
-
-    autoSave();
-    playSound(sfxClick);
-    vibrate(20);
-}
-
-function loadTheme() {
-    try {
-        const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        if (data.theme) {
-            setTheme(data.theme);
-        }
-    } catch (e) {}
-}
-
-// ==========================================
-// RENDERIZACAO
-// ==========================================
-
-function renderPorts() {
-    const container = document.getElementById('portsContainer');
-    let html = '';
-
-    for (let i = 1; i <= TOTAL_PORTS; i++) {
-        html += `
-            <div class="port-row" style="animation-delay: ${i * 0.02}s">
-                <div class="port-num">P${i}</div>
-                <input type="text" 
-                       id="input-${i}" 
-                       class="port-input" 
-                       placeholder="PE ou cliente..."
-                       oninput="updateData(${i}, this.value)"
-                       onkeydown="handlePortKey(event, ${i})">
-                <div class="port-actions">
-                    <button class="port-btn" id="btn-u-${i}" onclick="setQuickAction(${i}, 'Sem ident.')" data-tooltip="Sem identificacao" title="Sem identificacao">?</button>
-                    <button class="port-btn" id="btn-d-${i}" onclick="setQuickAction(${i}, 'Defeito')" data-tooltip="Defeito" title="Defeito">!</button>
-                    <button class="port-btn" id="btn-e-${i}" onclick="setQuickAction(${i}, 'Livre')" data-tooltip="Livre" title="Livre">∞</button>
-                </div>
-            </div>
-        `;
-    }
-
-    container.innerHTML = html;
-}
-
-// ==========================================
-// ATUALIZACAO DE DADOS
-// ==========================================
-
-function updateData(index, value) {
-    portsData[index - 1] = value;
-    const input = document.getElementById(`input-${index}`);
-    if (input) input.title = value || '';
-    updateButtonStyles(index, value);
-    updateStats();
-    updateVisualizer();
-    updatePreview();
-    checkDuplicates();
-    autoSave();
-
-    const indicator = document.getElementById('savedIndicator');
-    indicator.style.display = 'inline-block';
-    indicator.textContent = 'Salvo';
-    indicator.className = 'badge badge-green';
-    setTimeout(() => { indicator.style.display = 'none'; }, 1500);
-}
-
-function setQuickAction(index, text) {
-    const input = document.getElementById(`input-${index}`);
-    if (!input) return;
-
-    if (input.value === text) {
-        input.value = '';
-        updateData(index, '');
-    } else {
-        input.value = text;
-        updateData(index, text);
-    }
-
-    playSound(sfxClick);
-    vibrate(25);
-}
-
-function updateButtonStyles(index, value) {
-    const btnU = document.getElementById(`btn-u-${index}`);
-    const btnD = document.getElementById(`btn-d-${index}`);
-    const btnE = document.getElementById(`btn-e-${index}`);
-
-    if (btnU) btnU.className = 'port-btn' + (value === 'Sem ident.' ? ' active-warn' : '');
-    if (btnD) btnD.className = 'port-btn' + (value === 'Defeito' ? ' active-danger' : '');
-    if (btnE) btnE.className = 'port-btn' + (value === 'Livre' ? ' active-info' : '');
-}
-
-// ==========================================
-// ESTATISTICAS
-// ==========================================
-
-function updateStats() {
-    let free = 0, occupied = 0, defect = 0, unidentified = 0;
-
-    portsData.forEach(val => {
-        const v = val.trim();
-        if (!v || v === 'Livre' || v === 'Reserva' || v === 'Vago') free++;
-        else if (v === 'Defeito') defect++;
-        else if (v === 'Sem ident.') unidentified++;
-        else occupied++;
-    });
-
-    document.getElementById('statFree').textContent = free;
-    document.getElementById('statOccupied').textContent = occupied;
-    document.getElementById('statDefect').textContent = defect;
-    document.getElementById('statUnidentified').textContent = unidentified;
-
-    const filled = TOTAL_PORTS - free;
-    const pct = Math.round((filled / TOTAL_PORTS) * 100);
-    document.getElementById('occupancyBadge').textContent = pct + '%';
-    document.getElementById('portCountBadge').textContent = `${filled}/${TOTAL_PORTS}`;
-    document.getElementById('progressBar').style.width = pct + '%';
-
-    const badge = document.getElementById('occupancyBadge');
-    badge.className = 'badge ' + (pct >= 90 ? 'badge-red' : pct >= 70 ? 'badge-yellow' : 'badge-blue');
-}
-
-// ==========================================
-// VISUALIZADOR DA CTO
-// ==========================================
-
-function updateVisualizer() {
-    const grid = document.getElementById('ctoDrawing');
-    let html = '';
-
-    portsData.forEach((val, i) => {
-        const v = val.trim();
-        let cls = '';
-        let label = '';
-
-        if (v === 'Livre' || v === 'Reserva' || v === 'Vago' || !v) {
-            cls = v === 'Livre' ? 'free' : '';
-            label = v || 'Vazio';
-        } else if (v === 'Defeito') {
-            cls = 'defect';
-            label = 'Defeito';
-        } else if (v === 'Sem ident.') {
-            cls = 'unidentified';
-            label = 'S/ Ident.';
-        } else {
-            cls = 'occupied';
-            label = v.length > 10 ? v.substring(0, 9) + '…' : v;
-        }
-
-        html += `
-            <div class="cto-slot ${cls}" id="quad-vis-${i+1}" onclick="focusPort(${i+1})" title="P${i+1}: ${v || 'Vazio'}">
-                <span class="slot-num">${i+1}</span>
-                <span class="slot-label">${label}</span>
-            </div>
-        `;
-    });
-
-    grid.innerHTML = html;
-}
-
-function focusPort(index) {
-    const input = document.getElementById(`input-${index}`);
-    if (input) {
-        input.focus();
-        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        input.parentElement.style.animation = 'shake 0.3s';
-        setTimeout(() => input.parentElement.style.animation = '', 300);
-        vibrate(30);
+async function addRecentCTO(ctoName) {
+    if (!ctoName) return;
+    const norm = normalizarCTO(ctoName);
+    await dbPut('recentCTOs', { cto: norm, original: ctoName, timestamp: Date.now() });
+    // Mantém só os últimos 5
+    const all = await dbGetAll('recentCTOs');
+    all.sort((a,b) => b.timestamp - a.timestamp);
+    for (let i = 5; i < all.length; i++) {
+        await dbDelete('recentCTOs', all[i].cto);
     }
 }
 
-// ==========================================
-// PREVIEW DE TEXTO
-// ==========================================
-
-function updatePreview() {
-    const cto = document.getElementById('ctoName').value.trim() || 'CTO SEM NOME';
-    let text = `📌 *${cto}*\n\n`;
-
-    portsData.forEach((val, i) => {
-        text += `P${i+1} ➔ ${val || '---'}\n`;
-    });
-
-    document.getElementById('previewArea').textContent = text;
-}
-
-function togglePreview() {
-    const preview = document.getElementById('previewArea');
-    preview.classList.toggle('show');
-    playSound(sfxClick);
+async function getRecentCTOs() {
+    const all = await dbGetAll('recentCTOs');
+    return all.sort((a,b) => b.timestamp - a.timestamp).slice(0, 5);
 }
 
 // ==========================================
-// DUPLICATAS
+// SYNC QUEUE (IndexedDB)
 // ==========================================
 
-function checkDuplicates() {
-    const valueMap = {};
-    let hasDuplicate = false;
-
-    for (let i = 1; i <= TOTAL_PORTS; i++) {
-        document.getElementById(`input-${i}`)?.classList.remove('input-error');
-    }
-
-    portsData.forEach((val, index) => {
-        const clean = val.trim();
-        if (clean && !SPECIAL_VALUES.includes(clean)) {
-            if (!valueMap[clean]) valueMap[clean] = [];
-            valueMap[clean].push(index + 1);
-        }
-    });
-
-    Object.keys(valueMap).forEach(key => {
-        if (valueMap[key].length > 1) {
-            hasDuplicate = true;
-            valueMap[key].forEach(port => {
-                document.getElementById(`input-${port}`)?.classList.add('input-error');
-            });
-        }
-    });
-
-    if (hasDuplicate) {
-        showToast('⚠️ Codigo duplicado detectado!', 'error');
-        playSound(sfxErro);
-        vibrate([120, 60, 120]);
-    }
+async function enqueueSync(data) {
+    const item = { ...data, timestamp: Date.now(), attempts: 0 };
+    await dbPut('syncQueue', item);
+    syncQueue.push(item);
+    updateSyncStatus('syncing');
+    attemptSync();
 }
 
-// ==========================================
-// ACOES PRINCIPAIS
-// ==========================================
-
-async function copyToClipboard() {
-    const text = document.getElementById('previewArea').textContent;
-    const cto = document.getElementById('ctoName').value.trim();
-
-    try {
-        await navigator.clipboard.writeText(text);
-        showToast('✅ Resumo copiado!', 'success');
-        playSound(sfxSucesso);
-        vibrate([50, 30, 50]);
-
-        if (cto) {
-            const save = await showModal('Salvar no Excel?', `Deseja salvar/atualizar <b>${cto}</b> na planilha?`, true, '💾');
-            if (save) {
-                await salvarEmBackground();
-                showToast('💾 Dados sincronizados!', 'success');
-            }
-        }
-    } catch (e) {
-        showToast('Erro ao copiar. Tente manualmente.', 'error');
-        playSound(sfxErro);
-    }
-}
-
-async function clearAll() {
-    const confirm = await showModal('Limpar CTO?', 'Todos os dados serao apagados.\nEsta acao nao pode ser desfeita.', true, '⚠️');
-
-    if (confirm) {
-        playSound(sfxLixo);
-        vibrate([100, 50, 100, 50, 100]);
-
-        document.getElementById('ctoName').value = '';
-        document.getElementById('textoRetorno').value = '';
-        portsData.fill('');
-        renderPorts();
-        updateStats();
-        updateVisualizer();
-        updatePreview();
-        localStorage.removeItem(STORAGE_KEY);
-        showToast('🗑️ CTO limpa com sucesso', 'success');
-    }
-}
-
-// ==========================================
-// NORMALIZADOR DE VALOR DE PORTA (NOVO)
-// ==========================================
-
-function normalizarValorPorta(val) {
-    if (!val) return '';
-
-    const v = val.toString().trim();
-    const vLower = v.toLowerCase();
-
-    // Vazio / tracos / em-dash / en-dash
-    if (/^[-–—\s]*$/.test(v) || v === '---' || v === '--') return '';
-
-    // Livre / Vago / Reserva / Retirado
-    if (/^\s*livre\s*$/i.test(v)) return 'Livre';
-    if (/^\s*vago\s*$/i.test(v)) return 'Livre';
-    if (/^\s*reserva\s*$/i.test(v)) return 'Livre';
-    if (/^\s*retirado\s*$/i.test(v)) return 'Livre';
-
-    // Sem identificacao (muitas variacoes dos tecnicos!)
-    if (/^\s*sem\s*ident\.?\s*$/i.test(v)) return 'Sem ident.';
-    if (/^\s*semident\.?\s*$/i.test(v)) return 'Sem ident.';
-    if (/^\s*sem\s*id\.?\s*$/i.test(v)) return 'Sem ident.';
-    if (/^\s*semid\.?\s*$/i.test(v)) return 'Sem ident.';
-    if (/^\s*sem\s*pe\s*$/i.test(v)) return 'Sem ident.'; // typo comum
-    if (/^\s*sem\s*identifica[çc][aã]o\s*$/i.test(v)) return 'Sem ident.';
-    if (/^\s*sem\s*idf?\.?\s*$/i.test(v)) return 'Sem ident.';
-
-    // Defeito
-    if (/^\s*defeito\s*$/i.test(v)) return 'Defeito';
-
-    // Duplicado / ID incorreto — extrai o codigo numerico se existir
-    if (/duplicado/i.test(vLower) || /id\s*incorreto/i.test(vLower) || /idduplic/i.test(vLower)) {
-        const nums = v.match(/^(\d+)/);
-        if (nums) return nums[1] + ' duplicado';
-        return 'Sem ident.';
-    }
-
-    // Codigo numerico puro
-    const numsOnly = v.match(/^(\d+)$/);
-    if (numsOnly) return numsOnly[1];
-
-    // Se comeca com numeros seguidos de texto, pega so os numeros
-    const numsPrefix = v.match(/^(\d+)\s+/);
-    if (numsPrefix) return numsPrefix[1];
-
-    return v;
-}
-
-// ==========================================
-// FERRAMENTAS DA CENTRAL — PARSER ROBUSTO
-// ==========================================
-
-async function analisarRetorno() {
-    const texto = document.getElementById('textoRetorno').value.trim();
-
-    if (!texto) {
-        showToast('Cole a mensagem da central primeiro!', 'warn');
+async function attemptSync() {
+    if (!navigator.onLine) {
+        updateSyncStatus('offline');
         return;
     }
-
-    // Procura codigos de 4-6 digitos
-    const regex = /(?<!\d)\d{4,6}(?!\d)/g;
-    const codigos = [...texto.matchAll(regex)].map(m => m[0]);
-
-    if (codigos.length === 0) {
-        showToast('Nenhum codigo de 4-6 digitos encontrado.', 'warn');
+    const queue = await dbGetAll('syncQueue');
+    if (queue.length === 0) {
+        updateSyncStatus('synced');
         return;
     }
-
-    let encontrados = 0;
-
-    document.querySelectorAll('.cto-slot').forEach(s => {
-        s.classList.remove('marked-delete');
-    });
-
-    for (let i = 0; i < TOTAL_PORTS; i++) {
-        const val = portsData[i]?.trim();
-        // Normaliza: remove sufixos "duplicado" e nao-numericos para comparar
-        const valNorm = val?.replace(/\s+duplicado.*/i, '')?.replace(/\D/g, '') || '';
-        if (valNorm && codigos.includes(valNorm)) {
-            const slot = document.getElementById(`quad-vis-${i+1}`);
-            if (slot) {
-                slot.classList.add('marked-delete');
-                slot.querySelector('.slot-label').textContent = '🗑️';
-                encontrados++;
-            }
-        }
-    }
-
-    if (encontrados > 0) {
-        showToast(`⚠️ ${encontrados} porta(s) marcada(s) para remocao!`, 'error');
-        playSound(sfxErro);
-        vibrate([200, 100, 200, 100, 200]);
-    } else {
-        showToast('Nenhum codigo bateu com as portas atuais.', 'warn');
-    }
-}
-
-async function carregarCTO() {
-    let texto = document.getElementById('textoRetorno').value.trim();
-
-    if (!texto) {
-        showToast('Cole o texto da planilha primeiro!', 'warn');
-        return;
-    }
-
-    // Normaliza: remove pipes de tabelas, quebras excessivas
-    texto = texto.replace(/\|/g, ' ').replace(/\n+/g, '\n');
-
-    // ========== EXTRAI NOME DA CTO ==========
-    let ctoNome = '';
-
-    // Regex 1: 📌 *CTO NAME* ou *CTO NAME* (formato app)
-    let m = texto.match(/[📌*]*\s*\*?\s*(CTO[A-Z]*\s*[0-9.\-]+|CTO\s+[A-Z]+\s*[0-9.\-]+|[A-Z]+\s+[0-9.\-]+|CTO\s+SEM\s+NOME|CTOSEMNOME)\s*\*?/i);
-    if (m?.[1]) ctoNome = m[1].trim();
-
-    // Regex 2: data colada com CTO (ex: 09/06/2026，10:3CTOMO8.3.1)
-    if (!ctoNome) {
-        m = texto.match(/\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}[^\dA-Z]*([A-Z]+[0-9.\-]+)/i);
-        if (m?.[1]) ctoNome = m[1].trim();
-    }
-
-    // Regex 3: linha isolada com nome da CTO
-    if (!ctoNome) {
-        const linhas = texto.split('\n');
-        for (const linha of linhas) {
-            const mm = linha.trim().match(/^(CTO[A-Z]*\s*[0-9.\-]+|CTO\s+[A-Z]+\s*[0-9.\-]+|[A-Z]+\s+[0-9.\-]+|CTO\s+SEM\s+NOME|CTOSEMNOME)$/i);
-            if (mm) { ctoNome = mm[1].trim(); break; }
-        }
-    }
-
-    // Regex 4: qualquer "CTO..." no inicio de uma linha
-    if (!ctoNome) {
-        m = texto.match(/^\s*(CTO[^\n\r]*)/im);
-        if (m?.[1]) {
-            const candidato = m[1].trim().split(/\s/)[0];
-            if (candidato.length > 3) ctoNome = candidato;
-        }
-    }
-
-    if (ctoNome) {
-        // Limpa sujeiras
-        ctoNome = ctoNome.replace(/^[^\w]+/, '').replace(/[^\w.\-]+$/, '');
-        document.getElementById('ctoName').value = ctoNome;
-    }
-
-    // ========== PARSER DE PORTAS ==========
-    const portMap = {};
-
-    // Regex principal: P1→value, P1 ➔ value, P1: value, P1->value, etc.
-    // Captura ate o proximo P\d+ ou fim de linha/texto
-    const portRegex = /P\s*(\d{1,2})\s*[➔→:>\-]\s*([^\nP]*?)(?=\s*P\s*\d{1,2}\s*[➔→:>\-]|\n|$)/gi;
-
-    let match;
-    while ((match = portRegex.exec(texto)) !== null) {
-        const portNum = parseInt(match[1], 10);
-        let val = match[2].trim();
-        val = normalizarValorPorta(val);
-        if (portNum >= 1 && portNum <= TOTAL_PORTS) {
-            portMap[portNum] = val;
-        }
-    }
-
-    // Fallback: linha por linha se regex nao achou nada
-    if (Object.keys(portMap).length === 0) {
-        const linhas = texto.split('\n');
-        for (const linha of linhas) {
-            const mm = linha.match(/P\s*(\d{1,2})\s*[➔→:>\-]\s*(.+)/i);
-            if (mm) {
-                const portNum = parseInt(mm[1], 10);
-                let val = mm[2].trim();
-                val = normalizarValorPorta(val);
-                if (portNum >= 1 && portNum <= TOTAL_PORTS) {
-                    portMap[portNum] = val;
-                }
-            }
-        }
-    }
-
-    // Fallback 2: procura padrao "P1 value" sem seta (planilhas mal formatadas)
-    if (Object.keys(portMap).length === 0) {
-        const linhas = texto.split('\n');
-        for (const linha of linhas) {
-            const mm = linha.match(/P\s*(\d{1,2})\s+([A-Za-z0-9\-]+)/i);
-            if (mm) {
-                const portNum = parseInt(mm[1], 10);
-                let val = mm[2].trim();
-                val = normalizarValorPorta(val);
-                if (portNum >= 1 && portNum <= TOTAL_PORTS) {
-                    portMap[portNum] = val;
-                }
-            }
-        }
-    }
-
-    // Aplica os valores
-    for (let i = 1; i <= TOTAL_PORTS; i++) {
-        const val = portMap[i] !== undefined ? portMap[i] : '';
-        const input = document.getElementById(`input-${i}`);
-        if (input) {
-            input.value = val;
-            input.title = val || '';
-        }
-        portsData[i-1] = val;
-        updateButtonStyles(i, val);
-    }
-
-    updateStats();
-    updateVisualizer();
-    updatePreview();
-    checkDuplicates();
-    autoSave();
-
-    document.getElementById('textoRetorno').value = '';
-    const msg = Object.keys(portMap).length > 0
-        ? `♻️ CTO carregada! ${Object.keys(portMap).length} porta(s) encontrada(s).`
-        : '♻️ CTO carregada! Nenhuma porta encontrada no texto.';
-    showToast(msg, 'success');
-    playSound(sfxSucesso);
-    vibrate([60, 40, 60]);
-}
-
-// ==========================================
-// SELETOR DE CTO (LISTA DE RESULTADOS)
-// ==========================================
-
-function showCTOSelector(dados) {
-    const modal = document.getElementById('customModal');
-    const title = document.getElementById('modalTitle');
-    const text = document.getElementById('modalText');
-    const icon = document.getElementById('modalIcon');
-    const btnCancel = document.getElementById('modalBtnCancel');
-    const btnOk = document.getElementById('modalBtnOk');
-    const btnClose = document.getElementById('modalBtnClose');
-
-    title.textContent = `${dados.length} CTOs encontradas`;
-    icon.textContent = '📋';
-    icon.className = 'modal-icon info';
-    btnCancel.style.display = 'none';
-    btnOk.style.display = 'none';
-
-    let html = `<div style="display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;padding-right:4px;">`;
-    dados.forEach((item, idx) => {
-        const preview = item.RESUMO ? item.RESUMO.split('\n').slice(0, 3).join('\n') : 'Sem resumo';
-        html += `
-            <button class="btn btn-ghost" style="text-align:left;justify-content:flex-start;flex-direction:column;align-items:flex-start;padding:14px;gap:4px;height:auto;min-height:64px;" 
-                    onclick="loadSelectedCTO(${idx})">
-                <div style="font-weight:900;font-size:1.05rem;color:var(--text-primary);">${item.CTO}</div>
-                <div style="font-size:0.78rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;white-space:pre-wrap;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%;line-height:1.3;">${preview}</div>
-            </button>
-        `;
-    });
-    html += `</div>`;
-    text.innerHTML = html;
-
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('show'));
-
-    window._ctoSelectorData = dados;
-
-    const close = () => {
-        modal.classList.remove('show');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            btnOk.style.display = 'block';
-            text.innerHTML = '';
-            window._ctoSelectorData = null;
-            btnClose.onclick = null;
-            modal.onclick = null;
-        }, 250);
-    };
-
-    btnClose.onclick = close;
-    modal.onclick = (e) => { if (e.target === modal) close(); };
-}
-
-function loadSelectedCTO(idx) {
-    const dados = window._ctoSelectorData;
-    if (!dados || !dados[idx]) return;
-
-    const item = dados[idx];
-    document.getElementById('textoRetorno').value = item.RESUMO;
-
-    const modal = document.getElementById('customModal');
-    modal.classList.remove('show');
-    setTimeout(() => {
-        modal.style.display = 'none';
-        document.getElementById('modalBtnOk').style.display = 'block';
-        document.getElementById('modalText').innerHTML = '';
-        window._ctoSelectorData = null;
-    }, 250);
-
-    carregarCTO();
-    showToast(`✅ CTO "${item.CTO}" carregada!`, 'success');
-    playSound(sfxSucesso);
-    vibrate([50, 30, 50]);
-}
-
-// ==========================================
-// EXPORTAR / IMPORTAR
-// ==========================================
-
-function exportData() {
-    const data = {
-        cto: document.getElementById('ctoName').value,
-        ports: portsData,
-        theme: currentTheme,
-        timestamp: new Date().toISOString(),
-        version: '3.2'
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cto-${data.cto || 'backup'}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    showToast('💾 Backup exportado!', 'success');
-    playSound(sfxSucesso);
-    vibrate([50, 30, 50]);
-}
-
-function importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
+    updateSyncStatus('syncing');
+    for (const item of queue) {
         try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-
-            if (data.cto) document.getElementById('ctoName').value = data.cto;
-            if (data.theme) setTheme(data.theme);
-            if (data.ports && Array.isArray(data.ports)) {
-                portsData = data.ports.slice(0, TOTAL_PORTS);
-                portsData.forEach((val, i) => {
-                    const input = document.getElementById(`input-${i+1}`);
-                    if (input) {
-                        input.value = val;
-                        input.title = val || '';
-                    }
-                    updateButtonStyles(i+1, val);
-                });
-                updateStats();
-                updateVisualizer();
-                updatePreview();
-                checkDuplicates();
-                autoSave();
+            if (item.type === 'save') {
+                await salvarSheetDB(item.data);
             }
-
-            showToast('📥 Dados importados com sucesso!', 'success');
-            playSound(sfxSucesso);
-            vibrate([60, 40, 60]);
-        } catch (err) {
-            showToast('Erro ao importar arquivo.', 'error');
-            playSound(sfxErro);
+            await dbDelete('syncQueue', item.id);
+        } catch (e) {
+            console.warn('Sync failed for item', item.id, e);
+            item.attempts++;
+            if (item.attempts < 3) {
+                await dbPut('syncQueue', item);
+            } else {
+                await dbDelete('syncQueue', item.id);
+            }
         }
-    };
-    input.click();
-}
-
-// ==========================================
-// PERSISTENCIA
-// ==========================================
-
-function autoSave() {
-    const data = {
-        cto: document.getElementById('ctoName').value,
-        ports: portsData,
-        theme: currentTheme,
-        savedAt: new Date().toISOString()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function loadData() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-
-        const data = JSON.parse(raw);
-        if (data.cto) document.getElementById('ctoName').value = data.cto;
-        if (data.ports) {
-            portsData = data.ports;
-            portsData.forEach((val, i) => {
-                const input = document.getElementById(`input-${i+1}`);
-                if (input) {
-                    input.value = val;
-                    input.title = val || '';
-                    updateButtonStyles(i+1, val);
-                }
-            });
-        }
-    } catch (e) {
-        console.error('Erro ao carregar dados:', e);
     }
+    const remaining = await dbGetAll('syncQueue');
+    updateSyncStatus(remaining.length > 0 ? 'failed' : 'synced');
 }
 
-// ==========================================
-// SHEETDB — BUSCAR E SALVAR
-// ==========================================
+function updateSyncStatus(status) {
+    const pill = document.getElementById('syncPill');
+    const text = document.getElementById('syncText');
+    if (!pill) return;
+    pill.className = 'sync-pill ' + status;
+    const map = { syncing: '⏳ Sincronizando...', synced: '✓ Sincronizado', failed: '⚠️ Falha - toque', offline: '📴 Offline' };
+    text.textContent = map[status] || status;
+}
 
-async function buscarBancoDados() {
-    const ctoNome = document.getElementById('ctoName').value.trim();
-    if (!ctoNome) {
-        showToast('Digite um nome para buscar!', 'warn');
-        vibrate(60);
+function retrySync() {
+    if (!navigator.onLine) {
+        showToast('Sem conexão. Tentando quando voltar...', 'warn');
         return;
     }
+    attemptSync();
+}
 
-    const icon = document.querySelector('.input-icon');
-    const original = icon?.textContent || '🔍';
-    if (icon) icon.textContent = '⏳';
-
-    try {
-        // === ESTRATEGIA 1: Busca Fuzzy Local ===
-        if (ctoCache.length === 0) await carregarCacheCTOs();
-
-        const resultados = buscarFuzzyCTO(ctoNome);
-
-        if (resultados.length > 0) {
-            if (resultados.length === 1) {
-                document.getElementById('textoRetorno').value = resultados[0].RESUMO;
-                await carregarCTO();
-                showToast(`✅ CTO "${resultados[0].CTO}" carregada!`, 'success');
-                playSound(sfxSucesso);
-            } else {
-                showCTOSelector(resultados);
-            }
-            if (icon) icon.textContent = original;
-            return;
-        }
-
-        // === ESTRATEGIA 2: Fallback direto no SheetDB ===
-        const termoBusca = normalizarCTO(ctoNome);
-        const resposta = await fetch(
-            `${SHEETDB_URL}/search?CTO=*${encodeURIComponent(termoBusca)}*&casesensitive=false`
-        );
-        if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
-        const dados = await resposta.json();
-
-        if (dados && dados.length > 0) {
-            if (dados.length === 1) {
-                document.getElementById('textoRetorno').value = dados[0].RESUMO;
-                await carregarCTO();
-                showToast(`✅ CTO "${dados[0].CTO}" carregada!`, 'success');
-                playSound(sfxSucesso);
-            } else {
-                showCTOSelector(dados);
-            }
-        } else {
-            showToast(`Nenhuma caixa encontrada com "${ctoNome}"`, 'warn');
-            vibrate([80, 40]);
-        }
-    } catch (erro) {
-        console.error('Erro na busca:', erro);
-        showToast('Erro ao conectar. Verifique a internet.', 'error');
-        playSound(sfxErro);
-        vibrate([100, 50, 100]);
-    } finally {
-        if (icon) icon.textContent = original;
+async function salvarSheetDB(data) {
+    const payload = { data: [data] };
+    const todas = await fetch(SHEETDB_URL).then(r => r.json());
+    const cto = normalizarCTO(data.CTO);
+    const existente = todas.find(item => normalizarCTO(item.CTO) === cto);
+    if (existente) {
+        await fetch(`${SHEETDB_URL}/CTO/${encodeURIComponent(existente.CTO)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+    } else {
+        await fetch(SHEETDB_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
     }
 }
 
-async function salvarEmBackground() {
-    const ctoRaw = document.getElementById('ctoName').value || 'CTO SEM NOME';
-    const cto = normalizarCTO(ctoRaw) || ctoRaw;
-    const resumo = document.getElementById('previewArea').innerText;
+// ==========================================
+// SNAPSHOTS
+// ==========================================
 
-    const payload = {
-        data: [{
-            "DATA": new Date().toLocaleString('pt-BR'),
-            "CTO": cto,
-            "RESUMO": resumo
-        }]
+async function createSnapshot() {
+    const data = {
+        cto: document.getElementById('ctoName').value,
+        ports: [...portsData],
+        theme: currentTheme,
+        timestamp: Date.now()
     };
-
-    try {
-        const todas = await fetch(SHEETDB_URL).then(r => r.json());
-        const existente = todas.find(item => normalizarCTO(item.CTO) === cto);
-
-        if (existente) {
-            await fetch(`${SHEETDB_URL}/CTO/${encodeURIComponent(existente.CTO)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            showToast('🔄 CTO existente atualizada!', 'success');
-        } else {
-            await fetch(SHEETDB_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            showToast('💾 Nova CTO salva!', 'success');
-        }
-    } catch (error) {
-        console.error("Erro ao salvar:", error);
-        showToast('Erro ao sincronizar com o Excel.', 'error');
-        playSound(sfxErro);
+    const snaps = await dbGetAll('snapshots');
+    snaps.sort((a,b) => a.timestamp - b.timestamp);
+    if (snaps.length >= 3) {
+        await dbDelete('snapshots', snaps[0].timestamp);
     }
+    await dbPut('snapshots', data);
+}
+
+async function restoreSnapshot() {
+    const snaps = await dbGetAll('snapshots');
+    if (snaps.length === 0) return null;
+    snaps.sort((a,b) => b.timestamp - a.timestamp);
+    return snaps[0];
 }
 
 // ==========================================
-// MODAL
+// BOTTOM SHEETS
 // ==========================================
 
-function showModal(title, text, isConfirm = false, icon = 'ℹ️') {
+function showBottomSheet(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'flex';
+    requestAnimationFrame(() => el.classList.add('show'));
+    document.body.style.overflow = 'hidden';
+}
+
+function hideBottomSheet(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('show');
+    setTimeout(() => {
+        el.style.display = 'none';
+        document.body.style.overflow = '';
+    }, 300);
+}
+
+function closeBottomSheet(e, id) {
+    if (e.target === e.currentTarget) hideBottomSheet(id);
+}
+
+function showAlert(title, text) {
     return new Promise((resolve) => {
-        const modal = document.getElementById('customModal');
-        document.getElementById('modalTitle').textContent = title;
-        document.getElementById('modalText').innerHTML = text;
-        document.getElementById('modalIcon').textContent = icon;
-
-        const btnCancel = document.getElementById('modalBtnCancel');
-        const btnOk = document.getElementById('modalBtnOk');
-        const btnClose = document.getElementById('modalBtnClose');
-
-        btnCancel.style.display = isConfirm ? 'block' : 'none';
-        btnOk.style.display = 'block';
-        btnOk.textContent = isConfirm ? 'Confirmar' : 'OK';
-
-        modal.style.display = 'flex';
-        requestAnimationFrame(() => modal.classList.add('show'));
-
-        const close = (result) => {
-            modal.classList.remove('show');
-            setTimeout(() => {
-                modal.style.display = 'none';
-                btnOk.onclick = null;
-                btnCancel.onclick = null;
-                btnClose.onclick = null;
-                modal.onclick = null;
-                resolve(result);
-            }, 250);
-        };
-
-        btnOk.onclick = () => close(true);
-        btnCancel.onclick = () => close(false);
-        btnClose.onclick = () => close(false);
-        modal.onclick = (e) => {
-            if (e.target === modal && !isConfirm) close(true);
-        };
+        alertResolve = resolve;
+        document.getElementById('sheetAlertTitle').textContent = title;
+        document.getElementById('sheetAlertText').innerHTML = text;
+        showBottomSheet('sheetAlert');
     });
+}
+
+function resolveAlert() {
+    hideBottomSheet('sheetAlert');
+    if (alertResolve) { alertResolve(); alertResolve = null; }
+}
+
+function showConfirm(title, text) {
+    return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById('sheetConfirmTitle').textContent = title;
+        document.getElementById('sheetConfirmText').innerHTML = text;
+        showBottomSheet('sheetConfirm');
+    });
+}
+
+function resolveConfirm(result) {
+    hideBottomSheet('sheetConfirm');
+    if (confirmResolve) { confirmResolve(result); confirmResolve = null; }
 }
 
 // ==========================================
@@ -1095,13 +423,905 @@ function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     toast.textContent = message;
     toast.className = 'toast ' + type;
-
     clearTimeout(toastTimeout);
     requestAnimationFrame(() => toast.classList.add('show'));
+    toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
+}
 
-    toastTimeout = setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3500);
+// ==========================================
+// TEMAS
+// ==========================================
+
+function setTheme(theme) {
+    currentTheme = theme;
+    document.body.classList.remove('sun-mode', 'neon-mode');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (theme === 'sun') {
+        document.body.classList.add('sun-mode');
+        if (meta) meta.setAttribute('content', '#ffffff');
+    } else if (theme === 'neon') {
+        document.body.classList.add('neon-mode');
+        if (meta) meta.setAttribute('content', '#050508');
+    } else {
+        if (meta) meta.setAttribute('content', '#0a0a0f');
+    }
+    document.querySelectorAll('.theme-dot').forEach(btn => btn.classList.remove('active'));
+    const btnId = 'theme' + theme.charAt(0).toUpperCase() + theme.slice(1);
+    document.getElementById(btnId)?.classList.add('active');
+    autoSave();
+    initAudio(); playSound(sfxClick); vibClick();
+}
+
+function loadTheme() {
+    try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (data.theme) setTheme(data.theme);
+    } catch (e) {}
+}
+
+// ==========================================
+// RENDERIZAÇÃO DE PORTAS
+// ==========================================
+
+function renderPorts() {
+    const container = document.getElementById('portsContainer');
+    let html = '';
+    for (let i = 1; i <= TOTAL_PORTS; i++) {
+        html += `
+            <div class="port-row" id="port-row-${i}" style="animation-delay:${i*0.02}s" data-port="${i}">
+                <div class="port-num" onclick="focusPort(${i})" role="button" tabindex="0" aria-label="Porta ${i}">P${i}</div>
+                <input type="text" id="input-${i}" class="port-input" placeholder="PE ou cliente..."
+                    enterkeyhint="next" inputmode="text" autocapitalize="characters"
+                    oninput="updateData(${i},this.value)"
+                    onfocus="onPortFocus(${i})"
+                    onblur="onPortBlur(${i})"
+                    onkeydown="handlePortKey(event,${i})"
+                    aria-label="Porta ${i}, valor atual: ${portsData[i-1] || 'vazio'}">
+                <div class="port-actions">
+                    <button class="port-btn" id="btn-u-${i}" onclick="setQuickAction(${i},'Sem ident.')" aria-label="Porta ${i} sem identificação" title="Sem ident.">?</button>
+                    <button class="port-btn" id="btn-d-${i}" onclick="setQuickAction(${i},'Defeito')" aria-label="Porta ${i} defeito" title="Defeito">!</button>
+                    <button class="port-btn" id="btn-e-${i}" onclick="setQuickAction(${i},'Livre')" aria-label="Porta ${i} livre" title="Livre">∞</button>
+                </div>
+                <div class="dup-badge" id="dup-${i}">DUPLICADO</div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function onPortFocus(index) {
+    lastEditedPort = index;
+    const row = document.getElementById(`port-row-${index}`);
+    if (row) row.classList.add('last-edited');
+    document.getElementById('stickyPortHeader')?.classList.add('visible');
+    document.getElementById('stickyPortValue').textContent = `P${index}: ${portsData[index-1] || 'Vazio'}`;
+    updateARIA(index);
+    // Mostra floating nav se mobile
+    if (window.innerWidth < 720) {
+        document.getElementById('floatingNav')?.classList.add('show');
+    }
+    requestWakeLock();
+}
+
+function onPortBlur(index) {
+    const row = document.getElementById(`port-row-${index}`);
+    if (row) {
+        setTimeout(() => row.classList.remove('last-edited'), 3000);
+    }
+    document.getElementById('stickyPortHeader')?.classList.remove('visible');
+    document.getElementById('floatingNav')?.classList.remove('show');
+    releaseWakeLock();
+}
+
+function updateARIA(index) {
+    const input = document.getElementById(`input-${index}`);
+    if (input) {
+        const val = portsData[index-1] || 'vazio';
+        const estado = getPortStateLabel(portsData[index-1]);
+        input.setAttribute('aria-label', `Porta ${index}, ${estado}: ${val}`);
+    }
+}
+
+function getPortStateLabel(val) {
+    const v = (val || '').trim();
+    if (!v || v === 'Livre' || v === 'Reserva' || v === 'Vago') return 'livre';
+    if (v === 'Defeito') return 'defeito';
+    if (v === 'Sem ident.') return 'sem identificação';
+    return 'ocupada';
+}
+
+// ==========================================
+// ATUALIZAÇÃO DE DADOS
+// ==========================================
+
+function updateData(index, value) {
+    portsData[index - 1] = value;
+    const input = document.getElementById(`input-${index}`);
+    if (input) { input.title = value || ''; updateARIA(index); }
+    updateButtonStyles(index, value);
+    updatePortRowState(index, value);
+    updateStats();
+    updateVisualizer();
+    updatePreview();
+    checkDuplicates();
+    debouncedAutoSave();
+    document.getElementById('stickyPortValue').textContent = `P${index}: ${value || 'Vazio'}`;
+}
+
+function setQuickAction(index, text) {
+    const input = document.getElementById(`input-${index}`);
+    if (!input) return;
+    if (input.value === text) {
+        input.value = ''; updateData(index, '');
+    } else {
+        input.value = text; updateData(index, text);
+    }
+    initAudio(); playSound(sfxClick); vibClick();
+}
+
+function updateButtonStyles(index, value) {
+    const btnU = document.getElementById(`btn-u-${index}`);
+    const btnD = document.getElementById(`btn-d-${index}`);
+    const btnE = document.getElementById(`btn-e-${index}`);
+    if (btnU) btnU.className = 'port-btn' + (value === 'Sem ident.' ? ' active-warn' : '');
+    if (btnD) btnD.className = 'port-btn' + (value === 'Defeito' ? ' active-danger' : '');
+    if (btnE) btnE.className = 'port-btn' + (value === 'Livre' ? ' active-info' : '');
+}
+
+function updatePortRowState(index, value) {
+    const row = document.getElementById(`port-row-${index}`);
+    if (!row) return;
+    row.classList.remove('state-free', 'state-defect', 'state-unidentified', 'state-occupied');
+    const v = (value || '').trim();
+    if (!v || v === 'Livre' || v === 'Reserva' || v === 'Vago') row.classList.add('state-free');
+    else if (v === 'Defeito') row.classList.add('state-defect');
+    else if (v === 'Sem ident.') row.classList.add('state-unidentified');
+    else row.classList.add('state-occupied');
+}
+
+// ==========================================
+// ESTATÍSTICAS
+// ==========================================
+
+function updateStats() {
+    let free = 0, occupied = 0, defect = 0, unidentified = 0;
+    portsData.forEach(val => {
+        const v = (val || '').trim();
+        if (!v || v === 'Livre' || v === 'Reserva' || v === 'Vago') free++;
+        else if (v === 'Defeito') defect++;
+        else if (v === 'Sem ident.') unidentified++;
+        else occupied++;
+    });
+    document.getElementById('statFree').textContent = free;
+    document.getElementById('statOccupied').textContent = occupied;
+    document.getElementById('statDefect').textContent = defect;
+    document.getElementById('statUnidentified').textContent = unidentified;
+    const filled = TOTAL_PORTS - free;
+    const pct = Math.round((filled / TOTAL_PORTS) * 100);
+    document.getElementById('occupancyBadge').textContent = pct + '%';
+    document.getElementById('portCountBadge').textContent = `${filled}/${TOTAL_PORTS}`;
+    document.getElementById('progressBar').style.width = pct + '%';
+    const badge = document.getElementById('occupancyBadge');
+    badge.className = 'badge ' + (pct >= 90 ? 'badge-red' : pct >= 70 ? 'badge-yellow' : 'badge-blue');
+}
+
+// ==========================================
+// VISUALIZADOR DA CTO
+// ==========================================
+
+function updateVisualizer() {
+    const grid = document.getElementById('ctoDrawing');
+    let html = '';
+    portsData.forEach((val, i) => {
+        const v = (val || '').trim();
+        let cls = '';
+        let label = '';
+        if (!v || v === 'Livre' || v === 'Reserva' || v === 'Vago') { cls = v === 'Livre' ? 'free' : ''; label = v || 'Vazio'; }
+        else if (v === 'Defeito') { cls = 'defect'; label = 'Defeito'; }
+        else if (v === 'Sem ident.') { cls = 'unidentified'; label = 'S/ Ident.'; }
+        else { cls = 'occupied'; label = v.length > 10 ? v.substring(0,9) + '…' : v; }
+        const lastEdit = (lastEditedPort === i + 1) ? 'last-edited' : '';
+        html += `<div class="cto-slot ${cls} ${lastEdit}" id="quad-vis-${i+1}" onclick="gridClick(${i+1})" oncontextmenu="event.preventDefault();openLongPressMenu(event,${i+1})" role="gridcell" tabindex="0" aria-label="Porta ${i+1}, ${getPortStateLabel(v)}: ${v || 'vazio'}" title="P${i+1}: ${v || 'Vazio'}" onkeydown="if(event.key==='Enter'||event.key===' ')gridClick(${i+1})"><span class="slot-num">${i+1}</span><span class="slot-label">${label}</span></div>`;
+    });
+    grid.innerHTML = html;
+}
+
+function gridClick(index) {
+    focusPort(index);
+    initAudio(); playSound(sfxClick); vibClick();
+}
+
+function focusPort(index) {
+    const input = document.getElementById(`input-${index}`);
+    if (input) {
+        input.focus();
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        input.parentElement.style.animation = 'shake 0.3s';
+        setTimeout(() => { if (input.parentElement) input.parentElement.style.animation = ''; }, 300);
+        vibrate(30);
+    }
+}
+
+// ==========================================
+// LONG PRESS MENU
+// ==========================================
+
+let lpmTarget = null;
+let longPressTimer = null;
+
+function openLongPressMenu(e, index) {
+    lpmTarget = index;
+    const menu = document.getElementById('longPressMenu');
+    const x = e.clientX || e.touches?.[0]?.clientX || 0;
+    const y = e.clientY || e.touches?.[0]?.clientY || 0;
+    menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - 250) + 'px';
+    menu.classList.add('show');
+    vibLongPress();
+}
+
+function closeLongPressMenu() {
+    document.getElementById('longPressMenu')?.classList.remove('show');
+    lpmTarget = null;
+}
+
+function lpmAction(action) {
+    if (!lpmTarget) return;
+    if (action === 'edit') focusPort(lpmTarget);
+    else if (action === 'free') setQuickAction(lpmTarget, 'Livre');
+    else if (action === 'defect') setQuickAction(lpmTarget, 'Defeito');
+    else if (action === 'unidentified') setQuickAction(lpmTarget, 'Sem ident.');
+    else if (action === 'focus') { focusPortIndex = lpmTarget - 1; openFocusMode(); }
+    closeLongPressMenu();
+}
+
+// Touch handlers para long press no grid
+function setupLongPress() {
+    const grid = document.getElementById('ctoDrawing');
+    if (!grid) return;
+    grid.addEventListener('touchstart', (e) => {
+        const slot = e.target.closest('.cto-slot');
+        if (!slot) return;
+        const index = parseInt(slot.querySelector('.slot-num')?.textContent);
+        if (!index) return;
+        longPressTimer = setTimeout(() => {
+            const touch = e.touches[0];
+            openLongPressMenu({ clientX: touch.clientX, clientY: touch.clientY }, index);
+        }, 600);
+    }, { passive: true });
+    grid.addEventListener('touchend', () => clearTimeout(longPressTimer));
+    grid.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#longPressMenu')) closeLongPressMenu();
+    });
+}
+
+// ==========================================
+// SWIPE GESTURES
+// ==========================================
+
+function setupSwipe() {
+    const focusOverlay = document.getElementById('focusMode');
+    if (!focusOverlay) return;
+    let startX = 0, startY = 0, startTime = 0;
+    focusOverlay.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        startX = t.clientX; startY = t.clientY; startTime = Date.now();
+    }, { passive: true });
+    focusOverlay.addEventListener('touchend', (e) => {
+        const t = e.changedTouches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        const dt = Date.now() - startTime;
+        if (dt > 300 || Math.abs(dx) < 40 && Math.abs(dy) < 40) return;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            if (dx > 0) focusNav(-1);
+            else focusNav(1);
+        } else {
+            if (dy > 0) { closeFocusMode(); }
+            else { focusNav(4); }
+        }
+    }, { passive: true });
+}
+
+// ==========================================
+// FOCUS MODE (EDIÇÃO RÁPIDA)
+// ==========================================
+
+function toggleFocusMode() {
+    if (focusModeActive) closeFocusMode();
+    else { focusPortIndex = lastEditedPort ? lastEditedPort - 1 : 0; openFocusMode(); }
+}
+
+function openFocusMode() {
+    focusModeActive = true;
+    const overlay = document.getElementById('focusMode');
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    updateFocusView();
+    requestWakeLock();
+    initAudio(); playSound(sfxClick); vibClick();
+}
+
+function closeFocusMode() {
+    focusModeActive = false;
+    document.getElementById('focusMode')?.classList.remove('show');
+    document.body.style.overflow = '';
+    releaseWakeLock();
+}
+
+function updateFocusView() {
+    const idx = focusPortIndex;
+    document.getElementById('focusPortNum').textContent = 'P' + (idx + 1);
+    const input = document.getElementById('focusInput');
+    input.value = portsData[idx] || '';
+    input.focus();
+    // Atualiza botões de ação
+    const val = portsData[idx] || '';
+    document.getElementById('focusBtnU').classList.toggle('active', val === 'Sem ident.');
+    document.getElementById('focusBtnD').classList.toggle('active', val === 'Defeito');
+    document.getElementById('focusBtnE').classList.toggle('active', val === 'Livre');
+}
+
+function setFocusAction(text) {
+    const input = document.getElementById('focusInput');
+    if (input.value === text) { input.value = ''; }
+    else { input.value = text; }
+    updateData(focusPortIndex + 1, input.value);
+    updateFocusView();
+    initAudio(); playSound(sfxClick); vibClick();
+}
+
+function focusNav(delta) {
+    const newIndex = focusPortIndex + delta;
+    if (newIndex < 0 || newIndex >= TOTAL_PORTS) {
+        vibWarn(); return;
+    }
+    focusPortIndex = newIndex;
+    updateFocusView();
+    vibClick();
+}
+
+// Input do focus mode
+function setupFocusInput() {
+    const input = document.getElementById('focusInput');
+    if (!input) return;
+    input.addEventListener('input', () => {
+        updateData(focusPortIndex + 1, input.value);
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); focusNav(1); }
+    });
+}
+
+// ==========================================
+// VISUAL VIEWPORT (TECLADO)
+// ==========================================
+
+function setupVisualViewport() {
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+    const app = document.getElementById('appContainer');
+    const floating = document.getElementById('floatingNav');
+    vv.addEventListener('resize', () => {
+        const kbHeight = window.innerHeight - vv.height;
+        if (app) app.style.paddingBottom = (kbHeight > 100 ? kbHeight + 20 : 120) + 'px';
+        if (floating && kbHeight > 100) floating.classList.add('show');
+        else if (floating) floating.classList.remove('show');
+    });
+    vv.addEventListener('scroll', () => {
+        document.documentElement.scrollTop = 0;
+    });
+}
+
+// ==========================================
+// PREVIEW
+// ==========================================
+
+function updatePreview() {
+    const cto = document.getElementById('ctoName').value.trim() || 'CTO SEM NOME';
+    let text = `📌 *${cto}*\n\n`;
+    portsData.forEach((val, i) => { text += `P${i+1} ➔ ${val || '---'}\n`; });
+    document.getElementById('previewArea').textContent = text;
+}
+
+function togglePreview() {
+    document.getElementById('previewArea').classList.toggle('show');
+    initAudio(); playSound(sfxClick); vibClick();
+}
+
+// ==========================================
+// DUPLICATAS
+// ==========================================
+
+function checkDuplicates() {
+    const valueMap = {};
+    let hasDuplicate = false;
+    for (let i = 1; i <= TOTAL_PORTS; i++) {
+        document.getElementById(`input-${i}`)?.classList.remove('input-error');
+        document.getElementById(`dup-${i}`)?.classList.remove('show');
+    }
+    portsData.forEach((val, index) => {
+        const clean = (val || '').trim();
+        if (clean && !SPECIAL_VALUES.includes(clean)) {
+            if (!valueMap[clean]) valueMap[clean] = [];
+            valueMap[clean].push(index + 1);
+        }
+    });
+    Object.keys(valueMap).forEach(key => {
+        if (valueMap[key].length > 1) {
+            hasDuplicate = true;
+            valueMap[key].forEach(port => {
+                document.getElementById(`input-${port}`)?.classList.add('input-error');
+                document.getElementById(`dup-${port}`)?.classList.add('show');
+            });
+        }
+    });
+    if (hasDuplicate) { showToast('⚠️ Código duplicado detectado!', 'error'); initAudio(); playSound(sfxErro); vibError(); }
+}
+
+// ==========================================
+// AÇÕES PRINCIPAIS
+// ==========================================
+
+async function copyToClipboard() {
+    const text = document.getElementById('previewArea').textContent;
+    const cto = document.getElementById('ctoName').value.trim();
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast('✅ Resumo copiado!', 'success');
+        initAudio(); playSound(sfxSucesso); vibSuccess();
+        if (cto) {
+            const save = await showConfirm('Salvar no Excel?', `Deseja salvar/atualizar <b>${cto}</b> na planilha?`);
+            if (save) {
+                await salvarEmBackground();
+                showToast('💾 Dados sincronizados!', 'success');
+            }
+        }
+    } catch (e) {
+        showToast('Erro ao copiar. Tente manualmente.', 'error');
+        initAudio(); playSound(sfxErro); vibError();
+    }
+}
+
+async function shareContent() {
+    const text = document.getElementById('previewArea').textContent;
+    const cto = document.getElementById('ctoName').value.trim() || 'CTO';
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: `Resumo ${cto}`, text: text });
+            vibSuccess();
+        } catch (e) { /* cancelado */ }
+    } else {
+        await copyToClipboard();
+        showToast('📋 Copiado (share não disponível)', 'success');
+    }
+}
+
+async function clearAll() {
+    const confirm = await showConfirm('Limpar CTO?', 'Todos os dados serão apagados.\nEsta ação não pode ser desfeita.');
+    if (confirm) {
+        initAudio(); playSound(sfxLixo); vibError();
+        document.getElementById('ctoName').value = '';
+        document.getElementById('textoRetorno').value = '';
+        portsData.fill('');
+        renderPorts();
+        updateStats();
+        updateVisualizer();
+        updatePreview();
+        localStorage.removeItem(STORAGE_KEY);
+        await dbClear('snapshots');
+        showToast('🗑️ CTO limpa com sucesso', 'success');
+    }
+}
+
+// ==========================================
+// NORMALIZADOR DE VALOR DE PORTA
+// ==========================================
+
+function normalizarValorPorta(val) {
+    if (!val) return '';
+    const v = val.toString().trim();
+    const vLower = v.toLowerCase();
+    if (/^[-–—\s]*$/.test(v) || v === '---' || v === '--') return '';
+    if (/^\s*livre\s*$/i.test(v)) return 'Livre';
+    if (/^\s*vago\s*$/i.test(v)) return 'Livre';
+    if (/^\s*reserva\s*$/i.test(v)) return 'Livre';
+    if (/^\s*retirado\s*$/i.test(v)) return 'Livre';
+    if (/^\s*sem\s*ident\.?\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*semident\.?\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*sem\s*id\.?\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*semid\.?\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*sem\s*pe\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*sem\s*identifica[çc][aã]o\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*sem\s*idf?\.?\s*$/i.test(v)) return 'Sem ident.';
+    if (/^\s*defeito\s*$/i.test(v)) return 'Defeito';
+    if (/duplicado/i.test(vLower) || /id\s*incorreto/i.test(vLower) || /idduplic/i.test(vLower)) {
+        const nums = v.match(/^(\d+)/);
+        if (nums) return nums[1] + ' duplicado';
+        return 'Sem ident.';
+    }
+    const numsOnly = v.match(/^(\d+)$/);
+    if (numsOnly) return numsOnly[1];
+    const numsPrefix = v.match(/^(\d+)\s+/);
+    if (numsPrefix) return numsPrefix[1];
+    return v;
+}
+
+// ==========================================
+// FERRAMENTAS DA CENTRAL — PARSER ROBUSTO
+// ==========================================
+
+async function analisarRetorno() {
+    const texto = document.getElementById('textoRetorno').value.trim();
+    if (!texto) { showToast('Cole a mensagem da central primeiro!', 'warn'); return; }
+    const regex = /(?<!\d)\d{4,6}(?!\d)/g;
+    const codigos = [...texto.matchAll(regex)].map(m => m[0]);
+    if (codigos.length === 0) { showToast('Nenhum código de 4-6 dígitos encontrado.', 'warn'); return; }
+    let encontrados = 0;
+    document.querySelectorAll('.cto-slot').forEach(s => s.classList.remove('marked-delete'));
+    for (let i = 0; i < TOTAL_PORTS; i++) {
+        const val = (portsData[i] || '').trim();
+        const valNorm = val?.replace(/\s+duplicado.*/i, '')?.replace(/\D/g, '') || '';
+        if (valNorm && codigos.includes(valNorm)) {
+            const slot = document.getElementById(`quad-vis-${i+1}`);
+            if (slot) { slot.classList.add('marked-delete'); slot.querySelector('.slot-label').textContent = '🗑️'; encontrados++; }
+        }
+    }
+    if (encontrados > 0) {
+        showToast(`⚠️ ${encontrados} porta(s) marcada(s) para remoção!`, 'error');
+        initAudio(); playSound(sfxErro); vibError();
+        const removeAll = await showConfirm('Remover todos?', `Remover ${encontrados} portas marcadas como inativas?`);
+        if (removeAll) {
+            for (let i = 0; i < TOTAL_PORTS; i++) {
+                const slot = document.getElementById(`quad-vis-${i+1}`);
+                if (slot?.classList.contains('marked-delete')) {
+                    setQuickAction(i+1, 'Livre');
+                }
+            }
+            showToast('✅ Inativos removidos', 'success');
+            vibSuccess();
+        }
+    } else {
+        showToast('Nenhum código bateu com as portas atuais.', 'warn');
+    }
+}
+
+function parseCTOText(texto) {
+    let t = texto.replace(/\|/g, ' ').replace(/\n+/g, '\n');
+    let ctoNome = '';
+    let m = t.match(/[📌*]*\s*\*?\s*(CTO[A-Z]*\s*[0-9.\-]+|CTO\s+[A-Z]+\s*[0-9.\-]+|[A-Z]+\s+[0-9.\-]+|CTO\s+SEM\s+NOME|CTOSEMNOME)\s*\*?/i);
+    if (m?.[1]) ctoNome = m[1].trim();
+    if (!ctoNome) {
+        m = t.match(/\d{2}[\/\.\-]\d{2}[\/\.\-]\d{4}[^\dA-Z]*([A-Z]+[0-9.\-]+)/i);
+        if (m?.[1]) ctoNome = m[1].trim();
+    }
+    if (!ctoNome) {
+        const linhas = t.split('\n');
+        for (const linha of linhas) {
+            const mm = linha.trim().match(/^(CTO[A-Z]*\s*[0-9.\-]+|CTO\s+[A-Z]+\s*[0-9.\-]+|[A-Z]+\s+[0-9.\-]+|CTO\s+SEM\s+NOME|CTOSEMNOME)$/i);
+            if (mm) { ctoNome = mm[1].trim(); break; }
+        }
+    }
+    if (!ctoNome) {
+        m = t.match(/^\s*(CTO[^\n\r]*)/im);
+        if (m?.[1]) {
+            const candidato = m[1].trim().split(/\s/)[0];
+            if (candidato.length > 3) ctoNome = candidato;
+        }
+    }
+    if (ctoNome) {
+        ctoNome = ctoNome.replace(/^[^\w]+/, '').replace(/[^\w.\-]+$/, '');
+    }
+    const portMap = {};
+    const portRegex = /P\s*(\d{1,2})\s*[➔→:>\-]\s*([^\nP]*?)(?=\s*P\s*\d{1,2}\s*[➔→:>\-]|\n|$)/gi;
+    let match;
+    while ((match = portRegex.exec(t)) !== null) {
+        const portNum = parseInt(match[1], 10);
+        let val = match[2].trim();
+        val = normalizarValorPorta(val);
+        if (portNum >= 1 && portNum <= TOTAL_PORTS) portMap[portNum] = val;
+    }
+    if (Object.keys(portMap).length === 0) {
+        const linhas = t.split('\n');
+        for (const linha of linhas) {
+            const mm = linha.match(/P\s*(\d{1,2})\s*[➔→:>\-]\s*(.+)/i);
+            if (mm) {
+                const portNum = parseInt(mm[1], 10);
+                let val = mm[2].trim(); val = normalizarValorPorta(val);
+                if (portNum >= 1 && portNum <= TOTAL_PORTS) portMap[portNum] = val;
+            }
+        }
+    }
+    if (Object.keys(portMap).length === 0) {
+        const linhas = t.split('\n');
+        for (const linha of linhas) {
+            const mm = linha.match(/P\s*(\d{1,2})\s+([A-Za-z0-9\-]+)/i);
+            if (mm) {
+                const portNum = parseInt(mm[1], 10);
+                let val = mm[2].trim(); val = normalizarValorPorta(val);
+                if (portNum >= 1 && portNum <= TOTAL_PORTS) portMap[portNum] = val;
+            }
+        }
+    }
+    // Detecção CSV/TSV
+    if (Object.keys(portMap).length === 0) {
+        const delimiters = [',', '\t', ';'];
+        for (const delim of delimiters) {
+            const parts = t.split(delim);
+            if (parts.length >= 16) {
+                for (let i = 0; i < Math.min(parts.length, TOTAL_PORTS); i++) {
+                    const val = normalizarValorPorta(parts[i]);
+                    if (val !== undefined) portMap[i+1] = val;
+                }
+                break;
+            }
+        }
+    }
+    return { ctoNome, portMap };
+}
+
+async function carregarCTO() {
+    let texto = document.getElementById('textoRetorno').value.trim();
+    if (!texto) { showToast('Cole o texto da planilha primeiro!', 'warn'); return; }
+    const parsed = parseCTOText(texto);
+    if (parsed.ctoNome) document.getElementById('ctoName').value = parsed.ctoNome;
+    // Gera diff
+    const diffs = [];
+    for (let i = 1; i <= TOTAL_PORTS; i++) {
+        const oldVal = portsData[i-1] || '';
+        const newVal = parsed.portMap[i] !== undefined ? parsed.portMap[i] : '';
+        if (oldVal !== newVal) {
+            diffs.push({ port: i, old: oldVal || '---', new: newVal || '---' });
+        }
+    }
+    if (diffs.length === 0) {
+        showToast('Nenhuma mudança detectada.', 'warn');
+        return;
+    }
+    // Mostra diff em bottom sheet
+    diffData = parsed.portMap;
+    const diffContent = document.getElementById('diffContent');
+    let html = '<div class="diff-preview">';
+    diffs.forEach(d => {
+        html += `<div class="diff-row"><span class="diff-port">P${d.port}</span><span class="diff-old">${d.old}</span><span class="diff-arrow">→</span><span class="diff-new">${d.new}</span></div>`;
+    });
+    html += '</div>';
+    diffContent.innerHTML = html;
+    showBottomSheet('sheetDiff');
+}
+
+function applyDiff() {
+    if (!diffData) return;
+    for (let i = 1; i <= TOTAL_PORTS; i++) {
+        const val = diffData[i] !== undefined ? diffData[i] : '';
+        const input = document.getElementById(`input-${i}`);
+        if (input) { input.value = val; input.title = val || ''; }
+        portsData[i-1] = val;
+        updateButtonStyles(i, val);
+        updatePortRowState(i, val);
+    }
+    updateStats(); updateVisualizer(); updatePreview(); checkDuplicates(); debouncedAutoSave();
+    document.getElementById('textoRetorno').value = '';
+    hideBottomSheet('sheetDiff');
+    showToast(`♻️ ${Object.keys(diffData).filter(k => diffData[k]).length} porta(s) atualizada(s).`, 'success');
+    initAudio(); playSound(sfxSucesso); vibSuccess();
+    diffData = null;
+}
+
+// ==========================================
+// BUSCA DE CTO (Bottom Sheet + Autocomplete)
+// ==========================================
+
+async function buscarBancoDados() {
+    const ctoNome = document.getElementById('ctoName').value.trim();
+    if (!ctoNome) { showToast('Digite um nome para buscar!', 'warn'); vibrate(60); return; }
+    const icon = document.querySelector('.input-icon[title="Buscar"]');
+    const original = icon?.textContent || '🔍';
+    if (icon) icon.textContent = '⏳';
+    try {
+        if (ctoCache.length === 0) await carregarCacheCTOs();
+        const resultados = buscarFuzzyCTO(ctoNome);
+        if (resultados.length > 0) {
+            if (resultados.length === 1) {
+                document.getElementById('textoRetorno').value = resultados[0].RESUMO;
+                await carregarCTO();
+                showToast(`✅ CTO "${resultados[0].CTO}" carregada!`, 'success');
+                initAudio(); playSound(sfxSucesso); vibSuccess();
+                await addRecentCTO(resultados[0].CTO);
+            } else {
+                showCTOSelector(resultados, ctoNome);
+            }
+            if (icon) icon.textContent = original;
+            return;
+        }
+        const termoBusca = normalizarCTO(ctoNome);
+        const resposta = await fetch(`${SHEETDB_URL}/search?CTO=*${encodeURIComponent(termoBusca)}*&casesensitive=false`);
+        if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
+        const dados = await resposta.json();
+        if (dados && dados.length > 0) {
+            if (dados.length === 1) {
+                document.getElementById('textoRetorno').value = dados[0].RESUMO;
+                await carregarCTO();
+                showToast(`✅ CTO "${dados[0].CTO}" carregada!`, 'success');
+                initAudio(); playSound(sfxSucesso); vibSuccess();
+                await addRecentCTO(dados[0].CTO);
+            } else {
+                showCTOSelector(dados, ctoNome);
+            }
+        } else {
+            showToast(`Nenhuma caixa encontrada com "${ctoNome}"`, 'warn');
+            vibWarn();
+        }
+    } catch (erro) {
+        console.error('Erro na busca:', erro);
+        showToast('Erro ao conectar. Verifique a internet.', 'error');
+        initAudio(); playSound(sfxErro); vibError();
+    } finally {
+        if (icon) icon.textContent = original;
+    }
+}
+
+async function showCTOSelector(dados, termo) {
+    const termoNorm = normalizarCTO(termo);
+    const body = document.getElementById('sheetCTOBody');
+    const title = document.getElementById('sheetCTOTitle');
+    title.textContent = `${dados.length} CTOs encontradas`;
+    // Recent CTOs
+    const recents = await getRecentCTOs();
+    let html = '';
+    if (recents.length > 0) {
+        html += '<div style="font-size:0.8rem;font-weight:800;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Recentes</div>';
+        html += '<div class="recent-grid">';
+        recents.forEach(r => {
+            html += `<button class="recent-chip" onclick="selecionarCTO('${r.original.replace(/'/g, "\'")}')">${r.original}</button>`;
+        });
+        html += '</div>';
+    }
+    html += '<div style="font-size:0.8rem;font-weight:800;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Resultados</div>';
+    dados.forEach((item) => {
+        const ctoNorm = normalizarCTO(item.CTO || '');
+        const isExact = ctoNorm === termoNorm;
+        const preview = (item.RESUMO || '').split('\n').slice(0,3).join('\n').substring(0,80);
+        html += `
+            <div class="cto-card ${isExact ? 'cto-card-exact' : ''}" onclick="selecionarCTO('${item.CTO.replace(/'/g, "\'")}')">
+                <div class="cto-card-name">${item.CTO}</div>
+                <div class="cto-card-preview">${preview}...</div>
+            </div>
+        `;
+    });
+    body.innerHTML = html;
+    showBottomSheet('sheetCTO');
+}
+
+function selecionarCTO(nome) {
+    document.getElementById('ctoName').value = nome;
+    hideBottomSheet('sheetCTO');
+    buscarBancoDados();
+}
+
+// ==========================================
+// WEB SPEECH API
+// ==========================================
+
+function startVoiceSearch() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        showToast('Busca por voz não suportada neste dispositivo.', 'warn');
+        return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SpeechRecognition();
+    rec.lang = 'pt-BR';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = () => showToast('🎤 Ouvindo... fale o nome da CTO', 'success');
+    rec.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        document.getElementById('ctoName').value = transcript.toUpperCase();
+        showToast(`🎤 "${transcript}"`, 'success');
+        setTimeout(() => buscarBancoDados(), 500);
+    };
+    rec.onerror = () => showToast('Erro no reconhecimento de voz.', 'error');
+    rec.start();
+}
+
+// ==========================================
+// EXPORTAR / IMPORTAR
+// ==========================================
+
+function exportData() {
+    const data = { cto: document.getElementById('ctoName').value, ports: portsData, theme: currentTheme, timestamp: new Date().toISOString(), version: '4.0' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `cto-${data.cto || 'backup'}-${Date.now()}.json`; a.click();
+    URL.revokeObjectURL(url);
+    showToast('💾 Backup exportado!', 'success');
+    initAudio(); playSound(sfxSucesso); vibSuccess();
+}
+
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            if (data.cto) document.getElementById('ctoName').value = data.cto;
+            if (data.theme) setTheme(data.theme);
+            if (data.ports && Array.isArray(data.ports)) {
+                portsData = data.ports.slice(0, TOTAL_PORTS);
+                portsData.forEach((val, i) => {
+                    const inp = document.getElementById(`input-${i+1}`);
+                    if (inp) { inp.value = val; inp.title = val || ''; updateARIA(i+1); }
+                    updateButtonStyles(i+1, val);
+                    updatePortRowState(i+1, val);
+                });
+                updateStats(); updateVisualizer(); updatePreview(); checkDuplicates(); debouncedAutoSave();
+            }
+            showToast('📥 Dados importados com sucesso!', 'success');
+            initAudio(); playSound(sfxSucesso); vibSuccess();
+        } catch (err) {
+            showToast('Erro ao importar arquivo.', 'error');
+            initAudio(); playSound(sfxErro); vibError();
+        }
+    };
+    input.click();
+}
+
+// ==========================================
+// PERSISTÊNCIA INTELIGENTE
+// ==========================================
+
+function debouncedAutoSave() {
+    clearTimeout(saveTimeout);
+    const indicator = document.getElementById('savedIndicator');
+    if (indicator) { indicator.style.display = 'inline-block'; indicator.textContent = 'Salvando...'; indicator.className = 'badge badge-yellow'; }
+    saveTimeout = setTimeout(() => {
+        autoSave();
+        if (indicator) { indicator.textContent = 'Salvo'; indicator.className = 'badge badge-green'; setTimeout(() => indicator.style.display = 'none', 1500); }
+    }, 2000);
+}
+
+function autoSave() {
+    const data = { cto: document.getElementById('ctoName').value, ports: portsData, theme: currentTheme, savedAt: new Date().toISOString() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadData() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.cto) document.getElementById('ctoName').value = data.cto;
+        if (data.ports) {
+            portsData = data.ports;
+            portsData.forEach((val, i) => {
+                const inp = document.getElementById(`input-${i+1}`);
+                if (inp) { inp.value = val; inp.title = val || ''; updateARIA(i+1); }
+                updateButtonStyles(i+1, val);
+                updatePortRowState(i+1, val);
+            });
+        }
+    } catch (e) { console.error('Erro ao carregar dados:', e); }
+}
+
+// ==========================================
+// SALVAR EM BACKGROUND (com fila)
+// ==========================================
+
+async function salvarEmBackground() {
+    const ctoRaw = document.getElementById('ctoName').value || 'CTO SEM NOME';
+    const cto = normalizarCTO(ctoRaw) || ctoRaw;
+    const resumo = document.getElementById('previewArea').innerText;
+    const payload = {
+        DATA: new Date().toLocaleString('pt-BR'),
+        CTO: cto,
+        RESUMO: resumo
+    };
+    await enqueueSync({ type: 'save', data: payload });
 }
 
 // ==========================================
@@ -1110,8 +1330,10 @@ function showToast(message, type = 'info') {
 
 function toggleCollapse(header, id) {
     header.classList.toggle('open');
-    document.getElementById(id).classList.toggle('open');
-    playSound(sfxClick);
+    const body = document.getElementById(id);
+    body.classList.toggle('open');
+    header.setAttribute('aria-expanded', body.classList.contains('open'));
+    initAudio(); playSound(sfxClick); vibClick();
 }
 
 // ==========================================
@@ -1129,35 +1351,117 @@ function handlePortKey(e, index) {
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         if (!e.ctrlKey) return;
-
         switch(e.key.toLowerCase()) {
-            case 's':
-                e.preventDefault();
-                autoSave();
-                showToast('💾 Dados salvos localmente!', 'success');
-                playSound(sfxSucesso);
-                vibrate([40, 20, 40]);
-                break;
-            case 'c':
-                e.preventDefault();
-                copyToClipboard();
-                break;
-            case 'l':
-                e.preventDefault();
-                clearAll();
-                break;
-            case 'b':
-                e.preventDefault();
-                buscarBancoDados();
-                break;
+            case 's': e.preventDefault(); autoSave(); showToast('💾 Dados salvos localmente!', 'success'); initAudio(); playSound(sfxSucesso); vibSuccess(); break;
+            case 'c': e.preventDefault(); copyToClipboard(); break;
+            case 'l': e.preventDefault(); clearAll(); break;
+            case 'b': e.preventDefault(); buscarBancoDados(); break;
+            case 'f': e.preventDefault(); toggleFocusMode(); break;
         }
     });
 }
 
 // ==========================================
-// SERVICE WORKER
+// WAKE LOCK
 // ==========================================
 
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+    } catch (e) { console.warn('Wake Lock failed:', e); }
 }
+
+function releaseWakeLock() {
+    if (wakeLock) {
+        wakeLock.release().catch(()=>{});
+        wakeLock = null;
+    }
+}
+
+// ==========================================
+// BEFORE INSTALL PROMPT
+// ==========================================
+
+function setupInstallPrompt() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('installBtn');
+        if (btn) btn.style.display = 'inline-block';
+    });
+    window.addEventListener('appinstalled', () => {
+        deferredPrompt = null;
+        const btn = document.getElementById('installBtn');
+        if (btn) btn.style.display = 'none';
+        showToast('✅ App instalado!', 'success');
+    });
+}
+
+async function installApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+        deferredPrompt = null;
+        document.getElementById('installBtn').style.display = 'none';
+    }
+}
+
+// ==========================================
+// SERVICE WORKER & BACKGROUND SYNC
+// ==========================================
+
+function setupServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('sw.js').then(reg => {
+        console.log('SW registered');
+        // Background Sync
+        if ('sync' in reg) {
+            reg.sync.register('sync-ctos').catch(()=>{});
+        }
+    }).catch(()=>{});
+    navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data === 'sync-now') attemptSync();
+    });
+}
+
+// ==========================================
+// INICIALIZAÇÃO
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await openDB();
+    renderPorts();
+    loadData();
+    updateStats();
+    updateVisualizer();
+    updatePreview();
+    setupKeyboardShortcuts();
+    loadTheme();
+    setupSwipe();
+    setupLongPress();
+    setupFocusInput();
+    setupVisualViewport();
+    setupInstallPrompt();
+    setupServiceWorker();
+
+    // Snapshot a cada 5 min
+    snapshotInterval = setInterval(createSnapshot, 5 * 60 * 1000);
+
+    // Online/offline
+    window.addEventListener('online', () => { isOnline = true; updateSyncStatus('syncing'); attemptSync(); showToast('🌐 Conexão restaurada', 'success'); });
+    window.addEventListener('offline', () => { isOnline = false; updateSyncStatus('offline'); showToast('📴 Modo offline ativado', 'warn'); });
+
+    // Inicializa audio na primeira interação
+    document.body.addEventListener('touchstart', initAudio, { once: true });
+    document.body.addEventListener('click', initAudio, { once: true });
+
+    setTimeout(() => document.getElementById('ctoName')?.focus(), 300);
+
+    // Carrega cache de CTOs silenciosamente
+    carregarCacheCTOs().catch(()=>{});
+
+    // Tentativa de sync ao iniciar
+    attemptSync().catch(()=>{});
+});
