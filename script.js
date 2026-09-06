@@ -803,12 +803,26 @@ function setupVisualViewport() {
     const vv = window.visualViewport;
     const app = document.getElementById('appContainer');
     const floating = document.getElementById('floatingNav');
-    vv.addEventListener('resize', () => {
-        const kbHeight = window.innerHeight - vv.height;
-        if (app) app.style.paddingBottom = (kbHeight > 100 ? kbHeight + 20 : 120) + 'px';
-        if (floating && kbHeight > 100) floating.classList.add('show');
-        else if (floating) floating.classList.remove('show');
-    });
+    const toast = document.getElementById('toast');
+    const applyViewport = () => {
+        const kbHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        const kbOpen = kbHeight > 100;
+        if (app) app.style.paddingBottom = kbOpen ? (kbHeight + 20) + 'px' : '';
+        if (floating) {
+            // Sobe acima do teclado em vez de cobrir o campo em edição
+            floating.style.bottom = kbOpen ? (kbHeight + 12) + 'px' : '';
+            if (kbOpen && window.innerWidth < 720) floating.classList.add('show');
+            else if (!kbOpen && !document.activeElement?.classList?.contains('port-input')) floating.classList.remove('show');
+        }
+        if (toast) toast.style.bottom = kbOpen ? (kbHeight + 12) + 'px' : '';
+        // Garante que o campo focado fique visível acima do teclado
+        const ae = document.activeElement;
+        if (kbOpen && ae && (ae.classList?.contains('port-input') || ae.classList?.contains('input-field') || ae.classList?.contains('focus-input'))) {
+            setTimeout(() => ae.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+        }
+    };
+    vv.addEventListener('resize', applyViewport);
+    vv.addEventListener('scroll', applyViewport);
     vv.addEventListener('scroll', () => {
         document.documentElement.scrollTop = 0;
     });
