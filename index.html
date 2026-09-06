@@ -128,8 +128,11 @@
         body.neon-mode .cto-slot.unidentified { box-shadow:0 0 20px rgba(255,170,0,0.6),inset 0 0 10px rgba(255,170,0,0.3); }
 
         * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-        html { font-size:16px; overflow-x:hidden; }
-        body { font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text-primary); min-height:100vh; min-height:100dvh; transition:background 0.3s,color 0.3s; overflow-x:hidden; font-size:1rem; overscroll-behavior-y:none; touch-action:pan-y; }
+        html { font-size:16px; height:100%; }
+        /* overflow-x:clip (não "hidden") — bloqueia vazamento horizontal SEM
+           criar contexto de rolagem, que travava o scroll vertical no mobile */
+        body { font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text-primary); min-height:100vh; min-height:100dvh; transition:background 0.3s,color 0.3s; overflow-x:clip; overflow-y:auto; -webkit-overflow-scrolling:touch; font-size:1rem; overscroll-behavior-y:none; touch-action:pan-y; }
+        @supports not (overflow:clip) { body { overflow-x:hidden; } }
 
         .app-container { max-width:720px; margin:0 auto; padding:16px; padding-left:calc(16px + var(--safe-left)); padding-right:calc(16px + var(--safe-right)); padding-bottom:calc(120px + var(--safe-bottom)); contain:layout style paint; }
 
