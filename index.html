@@ -69,7 +69,7 @@
         .card-title { font-size: 1.15rem; font-weight: 800; color: var(--muted); margin-bottom: 14px; }
         .cto-input {
             width: 100%;
-            padding: 16px;
+            padding: 16px 58px 16px 16px;
             border: 2px solid var(--border);
             border-radius: 14px;
             background: var(--bg);
@@ -81,6 +81,19 @@
         }
         .cto-input:focus { border-color: var(--blue); }
         .cto-input::placeholder { color: var(--muted); font-weight: 500; }
+
+        .input-wrap { position: relative; }
+        .search-btn {
+            position: absolute; right: 8px; top: 8px;
+            width: 44px; height: 44px;
+            border: none; border-radius: 10px;
+            background: var(--blue); color: #fff;
+            font-size: 1.15rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform .15s, filter .15s;
+        }
+        .search-btn:active { transform: scale(.92); filter: brightness(.9); }
+        .search-btn:disabled { opacity: .6; }
 
         .btn-row { display: flex; gap: 12px; }
         .btn {
@@ -163,7 +176,11 @@
 
     <div class="card">
         <div class="card-title">Identificação da CTO</div>
-        <input type="text" id="ctoName" class="cto-input" placeholder="Ex: CTOMO 16.1.6" autocomplete="off">
+        <div class="input-wrap">
+            <input type="text" id="ctoName" class="cto-input" placeholder="Ex: CTOMO 16.1.6" autocomplete="off"
+                onkeydown="if(event.key==='Enter')searchCTO()">
+            <button class="search-btn" id="searchBtn" onclick="searchCTO()" aria-label="Buscar e preencher">🔍</button>
+        </div>
         <div class="btn-row">
             <button class="btn btn-blue" onclick="copyAll()">📋 Copiar</button>
             <button class="btn btn-red" onclick="clearAll()" aria-label="Limpar tudo">🗑️</button>
@@ -274,6 +291,72 @@
         document.body.classList.toggle('dark', dark);
         document.getElementById('themeBtn').textContent = dark ? '☀️' : '🌙';
         save();
+    }
+
+    // ===== BUSCA E PREENCHIMENTO AUTOMÁTICO =====
+    const SHEETDB_URL = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
+    let sheetCache = null;
+
+    function normalizarCTO(nome) {
+        if (!nome) return '';
+        let s = nome.toUpperCase().trim();
+        s = s.replace(/\bCTO\b\s*/g, '').trim();
+        if (s.startsWith('CTO') && s.length > 3) s = s.slice(3);
+        const m = s.match(/^[A-Z]+/);
+        const prefixo = m ? m[0] : '';
+        let resto = prefixo ? s.slice(prefixo.length) : s;
+        resto = resto.replace(/^[^A-Z0-9]+/i, '').replace(/-/g, '.');
+        const nums = (resto.match(/\d+/g) || []).join('.');
+        return prefixo ? prefixo + ' ' + nums : nums;
+    }
+
+    function parseResumo(resumo) {
+        // Aceita linhas como "P1 ➔ valor" ou "P1: valor" ou "P1 - valor"
+        const result = new Array(TOTAL_PORTS).fill('');
+        const linhas = (resumo || '').split('\n');
+        for (const linha of linhas) {
+            const m = linha.match(/^\s*P(\d{1,2})\s*(?:➔|:|-|–|\.)\s*(.*)$/i);
+            if (!m) continue;
+            const n = parseInt(m[1], 10);
+            if (n >= 1 && n <= TOTAL_PORTS) result[n - 1] = m[2].trim();
+        }
+        return result;
+    }
+
+    async function searchCTO() {
+        const termo = document.getElementById('ctoName').value.trim();
+        if (!termo) { showToast('Digite o nome da CTO primeiro'); return; }
+        const btn = document.getElementById('searchBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳';
+        try {
+            if (!sheetCache) {
+                showToast('Buscando na planilha...');
+                const res = await fetch(SHEETDB_URL);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                sheetCache = await res.json();
+            }
+            const termoNorm = normalizarCTO(termo);
+            const achado = sheetCache.find(item => normalizarCTO(item.CTO) === termoNorm)
+                || sheetCache.find(item => normalizarCTO(item.CTO).includes(termoNorm));
+            if (!achado) {
+                showToast('❌ CTO não encontrada na planilha');
+            } else {
+                document.getElementById('ctoName').value = achado.CTO;
+                const novas = parseResumo(achado.RESUMO);
+                let preenchidas = 0;
+                novas.forEach((v, i) => { if (v && v !== '---') preenchidas++; });
+                portsData = novas;
+                renderPorts();
+                save();
+                showToast('✅ ' + achado.CTO + ' preenchida (' + preenchidas + ' portas)');
+            }
+        } catch (e) {
+            showToast('⚠️ Sem conexão com a planilha');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍';
+        }
     }
 
     let toastTimer;
