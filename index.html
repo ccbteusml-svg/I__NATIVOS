@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>I__NATIVOS — Controle de CTO / Fibra</title>
     <meta name="theme-color" content="#f2f3f7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="I__NATIVOS">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
     <style>
         :root {
             --bg: #f2f3f7;
@@ -56,6 +63,22 @@
             font-size: 1rem; font-weight: 800;
         }
         .status-pill .dot { width: 12px; height: 12px; border-radius: 50%; background: #7dffb0; }
+
+        /* Botão instalar — só aparece quando o navegador permite instalar */
+        .install-btn {
+            display: none;
+            width: 100%;
+            margin-bottom: 18px;
+            padding: 14px;
+            border: none; border-radius: 14px;
+            background: var(--green); color: #fff;
+            font-size: 1rem; font-weight: 800; font-family: inherit;
+            cursor: pointer;
+            align-items: center; justify-content: center; gap: 8px;
+            transition: transform .15s, filter .15s;
+            min-height: 52px;
+        }
+        .install-btn:active { transform: scale(.97); filter: brightness(.92); }
 
         /* Card */
         .card {
@@ -204,6 +227,8 @@
             <div class="status-pill"><span class="dot"></span>On</div>
         </div>
     </header>
+
+    <button class="install-btn" id="installBtn" onclick="installApp()">📲 Instalar o app na tela inicial</button>
 
     <div class="card">
         <div class="card-title">Identificação da CTO</div>
@@ -520,6 +545,44 @@
 
     load();
     renderPorts();
+
+    // ===== PWA: service worker + botão instalar =====
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    let deferredInstallPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+
+    // Detecta se JÁ está instalado (aberto como app) e esconde o botão
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (!isInstalled) {
+            installBtn.style.display = 'flex'; // só mostra pra quem não instalou
+        }
+    });
+
+    async function installApp() {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+            installBtn.style.display = 'none';
+            showToast('✅ Instalado! Abra pela tela inicial');
+        }
+        deferredInstallPrompt = null;
+    }
+
+    // iOS não tem prompt automático — mostra instruções
+    if (!isInstalled && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
+        installBtn.style.display = 'flex';
+        installBtn.textContent = '📲 Toque em Compartilhar → "Adicionar à Tela de Início"';
+        installBtn.onclick = () => showToast('No Safari: botão Compartilhar ⎋ → Adicionar à Tela de Início');
+    }
 
     // Pré-carrega a planilha em silêncio e fecha a lista ao tocar fora
     ensureSheetLoaded().catch(() => {});

@@ -1,14 +1,16 @@
 {
-  "name": "I__NATIVOS Gerenciador v4",
-  "short_name": "I__NATIVOS",
-  "description": "Controle profissional de CTO e Fibra Óptica - Mobile First",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0a0a0f",
-  "theme_color": "#0a0a0f",
-  "icons": [
-    { "src": "icon.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
-  ]
+    "name": "I__NATIVOS — Controle de CTO / Fibra",
+    "short_name": "I__NATIVOS",
+    "description": "Controle simples de CTO e Fibra Óptica para técnicos de campo",
+    "start_url": ".",
+    "scope": ".",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#f2f3f7",
+    "theme_color": "#f2f3f7",
+    "icons": [
+        { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
 }
