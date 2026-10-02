@@ -3,7 +3,7 @@
 // Offline-first + IndexedDB sync + Background Sync
 // ==========================================
 
-const CACHE_NAME = 'inativos-v22';
+const CACHE_NAME = 'inativos-v23';
 const ASSETS = [
   './',
   './index.html',
