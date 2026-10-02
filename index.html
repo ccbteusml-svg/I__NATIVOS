@@ -95,6 +95,37 @@
         .search-btn:active { transform: scale(.92); filter: brightness(.9); }
         .search-btn:disabled { opacity: .6; }
 
+        /* Autocomplete — aparece só enquanto digita */
+        .suggest-list {
+            position: absolute; top: calc(100% - 10px); left: 4px; right: 4px;
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.15);
+            z-index: 50; overflow: hidden;
+            display: none;
+        }
+        .suggest-list.show { display: block; }
+        .suggest-item {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+            width: 100%; padding: 14px 16px;
+            border: none; border-bottom: 2px solid var(--border);
+            background: transparent; color: var(--text);
+            font-size: 1rem; font-weight: 700; font-family: inherit;
+            text-align: left; cursor: pointer;
+        }
+        .suggest-item:last-child { border-bottom: none; }
+        .suggest-item:active { background: var(--btn-gray); }
+        .suggest-item .suggest-ports {
+            font-size: .75rem; font-weight: 800; color: var(--muted);
+            background: var(--btn-gray); border-radius: 999px;
+            padding: 4px 10px; flex-shrink: 0;
+        }
+        .suggest-empty {
+            padding: 14px 16px; font-size: .95rem; font-weight: 600;
+            color: var(--muted); text-align: center;
+        }
+
         .btn-row { display: flex; gap: 12px; }
         .btn {
             flex: 1;
@@ -178,8 +209,10 @@
         <div class="card-title">Identificação da CTO</div>
         <div class="input-wrap">
             <input type="text" id="ctoName" class="cto-input" placeholder="Ex: CTOMO 16.1.6" autocomplete="off"
+                oninput="onCtoInput()" onfocus="onCtoInput()"
                 onkeydown="if(event.key==='Enter')searchCTO()">
             <button class="search-btn" id="searchBtn" onclick="searchCTO()" aria-label="Buscar e preencher">🔍</button>
+            <div class="suggest-list" id="suggestList"></div>
         </div>
         <div class="btn-row">
             <button class="btn btn-blue" onclick="copyAll()">📋 Copiar</button>
@@ -293,9 +326,137 @@
         save();
     }
 
-    // ===== BUSCA E PREENCHIMENTO AUTOMÁTICO =====
+    // ===== BUSCA INTELIGENTE COM AUTOCOMPLETE =====
     const SHEETDB_URL = 'https://sheetdb.io/api/v1/uzfmxhzz8a28d';
     let sheetCache = null;
+    let sheetLoading = null;
+    let suggestTimer = null;
+    let suggestItems = [];
+
+    // Pré-carrega a planilha assim que o usuário toca no campo (silencioso)
+    function ensureSheetLoaded() {
+        if (sheetCache) return Promise.resolve(sheetCache);
+        if (!sheetLoading) {
+            sheetLoading = fetch(SHEETDB_URL)
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(data => { sheetCache = data; return data; })
+                .catch(e => { sheetLoading = null; throw e; });
+        }
+        return sheetLoading;
+    }
+
+    // Pontua o quão boa é a coincidência (maior = melhor)
+    function scoreMatch(item, termoNorm) {
+        const ctoNorm = normalizarCTO(item.CTO);
+        if (!ctoNorm || !termoNorm) return -1;
+        if (ctoNorm === termoNorm) return 100;
+        const tNums = termoNorm.replace(/[^0-9.]/g, '');
+        const cNums = ctoNorm.replace(/[^0-9.]/g, '');
+        if (tNums && cNums === tNums) return 90;
+        if (tNums && (cNums.startsWith(tNums) || tNums.startsWith(cNums))) return 70;
+        if (ctoNorm.includes(termoNorm)) return 50;
+        const tPrefixo = termoNorm.match(/^[A-Z]+/)?.[0] || '';
+        if (tPrefixo && ctoNorm.startsWith(tPrefixo) && tNums && cNums.split('.')[0] === tNums.split('.')[0]) return 60;
+        return -1;
+    }
+
+    function contarPortasPreenchidas(resumo) {
+        let n = 0;
+        for (const linha of (resumo || '').split('\n')) {
+            const m = linha.match(/^\s*P\d{1,2}\s*(?:➔|:|-|–|\.)\s*(.+)$/i);
+            if (m && m[1].trim() && m[1].trim() !== '---') n++;
+        }
+        return n;
+    }
+
+    function buscarSugestoes(termo) {
+        const termoNorm = normalizarCTO(termo);
+        if (!termoNorm || !sheetCache) return [];
+        return sheetCache
+            .map(item => ({ item, score: scoreMatch(item, termoNorm) }))
+            .filter(x => x.score >= 0)
+            .sort((a, b) => b.score - a.score || a.item.CTO.localeCompare(b.item.CTO))
+            .slice(0, 6)
+            .map(x => x.item);
+    }
+
+    function renderSuggest(list) {
+        const box = document.getElementById('suggestList');
+        if (!list.length) {
+            box.innerHTML = '<div class="suggest-empty">Nenhuma CTO encontrada</div>';
+        } else {
+            box.innerHTML = list.map((item, i) => `
+                <button class="suggest-item" onclick="pickSuggest(${i})">
+                    <span>${item.CTO}</span>
+                    <span class="suggest-ports">${contarPortasPreenchidas(item.RESUMO)} portas</span>
+                </button>`).join('');
+        }
+        suggestItems = list;
+        box.classList.add('show');
+    }
+
+    function hideSuggest() {
+        document.getElementById('suggestList').classList.remove('show');
+        suggestItems = [];
+    }
+
+    // Chamado a cada tecla digitada (com atraso de 250ms para não travar)
+    function onCtoInput() {
+        clearTimeout(suggestTimer);
+        const termo = document.getElementById('ctoName').value.trim();
+        if (termo.length < 2) { hideSuggest(); return; }
+        suggestTimer = setTimeout(async () => {
+            try {
+                await ensureSheetLoaded();
+                renderSuggest(buscarSugestoes(termo));
+            } catch (e) { hideSuggest(); }
+        }, 250);
+        save();
+    }
+
+    function pickSuggest(i) {
+        const item = suggestItems[i];
+        if (!item) return;
+        hideSuggest();
+        document.getElementById('ctoName').value = item.CTO;
+        applyResumo(item);
+    }
+
+    function applyResumo(item) {
+        const novas = parseResumo(item.RESUMO);
+        let preenchidas = 0;
+        novas.forEach(v => { if (v && v !== '---') preenchidas++; });
+        portsData = novas;
+        renderPorts();
+        save();
+        showToast('✅ ' + item.CTO + ' preenchida (' + preenchidas + ' portas)');
+    }
+
+    // Lupa: preenche a melhor coincidência direto (atalho, sem lista)
+    async function searchCTO() {
+        const termo = document.getElementById('ctoName').value.trim();
+        if (!termo) { showToast('Digite o nome da CTO primeiro'); return; }
+        const btn = document.getElementById('searchBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳';
+        hideSuggest();
+        try {
+            await ensureSheetLoaded();
+            const list = buscarSugestoes(termo);
+            if (!list.length) {
+                showToast('❌ CTO não encontrada na planilha');
+            } else {
+                applyResumo(list[0]);
+                document.getElementById('ctoName').value = list[0].CTO;
+                save();
+            }
+        } catch (e) {
+            showToast('⚠️ Sem conexão com a planilha');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍';
+        }
+    }
 
     function normalizarCTO(nome) {
         if (!nome) return '';
@@ -329,27 +490,16 @@
         const btn = document.getElementById('searchBtn');
         btn.disabled = true;
         btn.textContent = '⏳';
+        hideSuggest();
         try {
-            if (!sheetCache) {
-                showToast('Buscando na planilha...');
-                const res = await fetch(SHEETDB_URL);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                sheetCache = await res.json();
-            }
-            const termoNorm = normalizarCTO(termo);
-            const achado = sheetCache.find(item => normalizarCTO(item.CTO) === termoNorm)
-                || sheetCache.find(item => normalizarCTO(item.CTO).includes(termoNorm));
-            if (!achado) {
+            await ensureSheetLoaded();
+            const list = buscarSugestoes(termo);
+            if (!list.length) {
                 showToast('❌ CTO não encontrada na planilha');
             } else {
-                document.getElementById('ctoName').value = achado.CTO;
-                const novas = parseResumo(achado.RESUMO);
-                let preenchidas = 0;
-                novas.forEach((v, i) => { if (v && v !== '---') preenchidas++; });
-                portsData = novas;
-                renderPorts();
+                applyResumo(list[0]);
+                document.getElementById('ctoName').value = list[0].CTO;
                 save();
-                showToast('✅ ' + achado.CTO + ' preenchida (' + preenchidas + ' portas)');
             }
         } catch (e) {
             showToast('⚠️ Sem conexão com a planilha');
@@ -370,6 +520,12 @@
 
     load();
     renderPorts();
+
+    // Pré-carrega a planilha em silêncio e fecha a lista ao tocar fora
+    ensureSheetLoaded().catch(() => {});
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.input-wrap')) hideSuggest();
+    });
 </script>
 </body>
 </html>
