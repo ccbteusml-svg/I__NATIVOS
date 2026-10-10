@@ -325,6 +325,8 @@
     }
 
     // Salva/atualiza a CTO na planilha (upsert: atualiza se existe, cria se não)
+    // Importante: só envia CTO e RESUMO — a coluna A (data/hora automática)
+    // da planilha fica intacta, pois não a incluímos no payload.
     async function saveToSheet() {
         const cto = getCTOName();
         if (!cto) throw new Error('sem-cto');
@@ -333,7 +335,11 @@
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         });
-        const existente = todas.find(item => normalizarCTO(item.CTO) === normalizarCTO(cto));
+        // Se houver linhas duplicadas da mesma CTO, pega a MAIS RECENTE (última da lista)
+        let existente = null;
+        for (const item of todas) {
+            if (normalizarCTO(item.CTO) === normalizarCTO(cto)) existente = item;
+        }
         const payload = JSON.stringify({ data: [{ CTO: cto, RESUMO: resumo }] });
         if (existente) {
             await fetch(SHEETDB_URL + '/CTO/' + encodeURIComponent(existente.CTO), {
@@ -410,7 +416,17 @@
         if (!sheetLoading) {
             sheetLoading = fetch(SHEETDB_URL)
                 .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(data => { sheetCache = data; return data; })
+                .then(data => {
+                    // Remove duplicatas: mantém só a LINHA MAIS RECENTE de cada CTO.
+                    // A planilha cresce pra baixo, então a última ocorrência é a mais nova.
+                    const vistos = new Map();
+                    for (const item of data) {
+                        const chave = normalizarCTO(item.CTO || '');
+                        if (chave) vistos.set(chave, item);
+                    }
+                    sheetCache = Array.from(vistos.values());
+                    return sheetCache;
+                })
                 .catch(e => { sheetLoading = null; throw e; });
         }
         return sheetLoading;
