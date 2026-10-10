@@ -313,25 +313,71 @@
         document.getElementById('btn-e-' + i).className = 'port-btn' + (v === 'Livre' ? ' active-info' : '');
     }
 
+    function getCTOName() {
+        return document.getElementById('ctoName').value.trim();
+    }
+
     function buildText() {
-        const cto = document.getElementById('ctoName').value.trim() || 'CTO SEM NOME';
-        let t = cto + '\n\n';
-        portsData.forEach((v, i) => { t += 'P' + (i+1) + ': ' + (v || '---') + '\n'; });
+        const cto = getCTOName() || 'CTO SEM NOME';
+        let t = '📌 *' + cto + '*\n\n';
+        portsData.forEach((v, i) => { t += 'P' + (i+1) + ' ➔ ' + (v || '---') + '\n'; });
         return t;
     }
 
+    // Salva/atualiza a CTO na planilha (upsert: atualiza se existe, cria se não)
+    async function saveToSheet() {
+        const cto = getCTOName();
+        if (!cto) throw new Error('sem-cto');
+        const resumo = buildText();
+        const todas = await fetch(SHEETDB_URL).then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        });
+        const existente = todas.find(item => normalizarCTO(item.CTO) === normalizarCTO(cto));
+        const payload = JSON.stringify({ data: [{ CTO: cto, RESUMO: resumo }] });
+        if (existente) {
+            await fetch(SHEETDB_URL + '/CTO/' + encodeURIComponent(existente.CTO), {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: payload
+            });
+        } else {
+            await fetch(SHEETDB_URL, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload
+            });
+        }
+        // Atualiza o cache local para a busca já enxergar os novos dados
+        if (sheetCache) {
+            const i = sheetCache.findIndex(item => normalizarCTO(item.CTO) === normalizarCTO(cto));
+            const novo = { CTO: cto, RESUMO: resumo };
+            if (i >= 0) sheetCache[i] = novo; else sheetCache.push(novo);
+        }
+    }
+
     async function copyAll() {
+        const text = buildText();
+        // 1) Copia sempre
         try {
-            await navigator.clipboard.writeText(buildText());
-            showToast('✅ Copiado!');
+            await navigator.clipboard.writeText(text);
         } catch (e) {
             const ta = document.createElement('textarea');
-            ta.value = buildText();
+            ta.value = text;
             document.body.appendChild(ta);
             ta.select();
             document.execCommand('copy');
             ta.remove();
-            showToast('✅ Copiado!');
+        }
+
+        // 2) Salva na planilha (se tiver nome de CTO e internet)
+        const cto = getCTOName();
+        if (!cto) {
+            showToast('✅ Copiado! (sem nome, não salvou na planilha)');
+            return;
+        }
+        showToast('✅ Copiado! Salvando na planilha...');
+        try {
+            await saveToSheet();
+            showToast('✅ Copiado e salvo na planilha!');
+        } catch (e) {
+            showToast('✅ Copiado! ⚠️ Falha ao salvar (sem internet?)');
         }
     }
 
