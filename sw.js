@@ -1,5 +1,5 @@
 // Service Worker — I__NATIVOS (cache simples para funcionar offline)
-const CACHE = 'inativos-v2';
+const CACHE = 'inativos-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
