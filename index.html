@@ -184,6 +184,8 @@
             outline: none;
         }
         .port-input:focus { border-color: var(--blue); }
+        /* PE duplicado em outra porta */
+        .port-input.dup { border-color: var(--red); background: rgba(229,72,77,.08); }
         .port-btn {
             width: 52px; height: 52px; flex: 0 0 52px;
             border: 2px solid var(--border);
@@ -283,8 +285,9 @@
             <div class="port-row">
                 <span class="port-label">P${i}</span>
                 <input type="text" class="port-input" id="input-${i}" value="${portsData[i-1] || ''}"
-                    placeholder="PE" autocapitalize="characters"
-                    oninput="updateData(${i}, this.value)">
+                    placeholder="PE" autocapitalize="characters" enterkeyhint="next"
+                    oninput="updateData(${i}, this.value)"
+                    onkeydown="handlePortKey(event, ${i})">
                 <button class="port-btn ${portsData[i-1]==='Sem ident.'?'active-warn':''}" id="btn-u-${i}" onclick="quick(${i},'Sem ident.')">?</button>
                 <button class="port-btn ${portsData[i-1]==='Defeito'?'active-danger':''}" id="btn-d-${i}" onclick="quick(${i},'Defeito')">!</button>
                 <button class="port-btn ${portsData[i-1]==='Livre'?'active-info':''}" id="btn-e-${i}" onclick="quick(${i},'Livre')">∞</button>
@@ -296,7 +299,47 @@
     function updateData(i, v) {
         portsData[i-1] = v;
         refreshButtons(i, v);
+        checkDuplicates();
         save();
+    }
+
+    // (1) Enter pula para a próxima porta
+    function handlePortKey(e, i) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        if (i < TOTAL_PORTS) {
+            const next = document.getElementById('input-' + (i + 1));
+            next.focus();
+            next.select();
+        } else {
+            document.getElementById('input-' + i).blur();
+        }
+    }
+
+    // (8) Avisa quando o mesmo PE aparece em duas portas
+    let dupAvisado = false;
+    function checkDuplicates() {
+        const mapa = {};
+        portsData.forEach((v, idx) => {
+            const clean = (v || '').trim();
+            // Ignora vazio e estados especiais
+            if (!clean || clean === '---' || clean === 'Sem ident.' || clean === 'Defeito' || clean === 'Livre') return;
+            (mapa[clean] = mapa[clean] || []).push(idx + 1);
+        });
+        let temDup = false;
+        for (let i = 1; i <= TOTAL_PORTS; i++) {
+            const input = document.getElementById('input-' + i);
+            if (input) input.classList.remove('dup');
+        }
+        Object.values(mapa).forEach(portas => {
+            if (portas.length > 1) {
+                temDup = true;
+                portas.forEach(p => document.getElementById('input-' + p)?.classList.add('dup'));
+            }
+        });
+        // Só avisa na primeira vez (não fica repetindo a cada tecla)
+        if (temDup && !dupAvisado) showToast('⚠️ PE duplicado em mais de uma porta!');
+        dupAvisado = temDup;
     }
 
     function quick(i, text) {
@@ -498,6 +541,8 @@
     function onCtoInput() {
         clearTimeout(suggestTimer);
         const termo = document.getElementById('ctoName').value.trim();
+        // Campo vazio: mostra as últimas CTOs abertas
+        if (!termo) { renderRecents(); return; }
         if (termo.length < 2) { hideSuggest(); return; }
         suggestTimer = setTimeout(async () => {
             try {
@@ -522,8 +567,50 @@
         novas.forEach(v => { if (v && v !== '---') preenchidas++; });
         portsData = novas;
         renderPorts();
+        checkDuplicates();
+        addRecent(item.CTO);
         save();
         showToast('✅ ' + item.CTO + ' preenchida (' + preenchidas + ' portas)');
+    }
+
+    // ===== (5) HISTÓRICO DAS ÚLTIMAS CTOs =====
+    const RECENTS_KEY = 'inativos_recentes';
+
+    function getRecents() {
+        try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]'); }
+        catch (e) { return []; }
+    }
+
+    function addRecent(cto) {
+        if (!cto) return;
+        let lista = getRecents().filter(x => x !== cto);
+        lista.unshift(cto);
+        lista = lista.slice(0, 5);
+        localStorage.setItem(RECENTS_KEY, JSON.stringify(lista));
+    }
+
+    // Mostra as últimas CTOs abertas (campo vazio, só tocar)
+    function renderRecents() {
+        const recents = getRecents();
+        if (!recents.length) return;
+        const box = document.getElementById('suggestList');
+        box.innerHTML = recents.map(cto => `
+            <button class="suggest-item" onclick="pickRecent('${cto.replace(/'/g, "\\'")}')">
+                <span>🕒 ${cto}</span>
+                <span class="suggest-ports">recente</span>
+            </button>`).join('');
+        box.classList.add('show');
+    }
+
+    function pickRecent(cto) {
+        document.getElementById('ctoName').value = cto;
+        hideSuggest();
+        // Se estiver no cache, já preenche direto; senão busca pela lupa
+        if (sheetCache) {
+            const item = sheetCache.find(x => normalizarCTO(x.CTO) === normalizarCTO(cto));
+            if (item) { applyResumo(item); return; }
+        }
+        searchCTO();
     }
 
     // Lupa: preenche a melhor coincidência direto (atalho, sem lista)
@@ -614,6 +701,7 @@
 
     load();
     renderPorts();
+    checkDuplicates();
 
     // ===== PWA: service worker + botão instalar =====
     if ('serviceWorker' in navigator) {
