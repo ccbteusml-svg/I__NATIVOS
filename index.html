@@ -363,8 +363,21 @@
         return document.getElementById('ctoName').value.trim();
     }
 
+    // Padrão oficial: CTO-REGIAO+N1-N2-N3 (ex: CTO-MO1-1-1, CTO-MZ16-1-6)
+    function padraoCTO(nome) {
+        const norm = normalizarCTO(nome); // ex: "MO 16.1.6"
+        if (!norm) return '';
+        const partes = norm.split(' ');
+        const temPrefixo = partes.length > 1;
+        const prefixo = temPrefixo ? partes[0] : '';
+        const nums = (temPrefixo ? partes[1] : partes[0]).split('.').filter(n => n !== '')
+            .map(n => String(parseInt(n, 10))); // remove zeros à esquerda (08 → 8)
+        if (!nums.length) return nome.toUpperCase().trim();
+        return 'CTO-' + prefixo + nums.join('-');
+    }
+
     function buildText() {
-        const cto = getCTOName() || 'CTO SEM NOME';
+        const cto = padraoCTO(getCTOName()) || 'CTO SEM NOME';
         let t = '📌 *' + cto + '*\n\n';
         portsData.forEach((v, i) => { t += 'P' + (i+1) + ' ➔ ' + (v || '---') + '\n'; });
         return t;
@@ -379,7 +392,7 @@
 
     // Salva/atualiza a CTO na planilha (upsert: atualiza se existe, cria se não)
     async function saveToSheet() {
-        const cto = getCTOName();
+        const cto = padraoCTO(getCTOName()); // sempre salva no padrão oficial
         if (!cto) throw new Error('sem-cto');
         const resumo = buildText();
         const todas = await fetch(SHEETDB_URL).then(r => {
@@ -409,6 +422,9 @@
             const novo = { CTO: cto, RESUMO: resumo };
             if (i >= 0) sheetCache[i] = novo; else sheetCache.push(novo);
         }
+        // Mostra o nome já padronizado no campo
+        document.getElementById('ctoName').value = cto;
+        save();
     }
 
     async function copyAll() {
@@ -560,7 +576,7 @@
         const item = suggestItems[i];
         if (!item) return;
         hideSuggest();
-        document.getElementById('ctoName').value = item.CTO;
+        document.getElementById('ctoName').value = padraoCTO(item.CTO);
         applyResumo(item);
     }
 
@@ -631,7 +647,7 @@
                 showToast('❌ CTO não encontrada na planilha');
             } else {
                 applyResumo(list[0]);
-                document.getElementById('ctoName').value = list[0].CTO;
+                document.getElementById('ctoName').value = padraoCTO(list[0].CTO);
                 save();
             }
         } catch (e) {
@@ -646,6 +662,7 @@
         if (!nome) return '';
         let s = nome.toUpperCase().trim();
         s = s.replace(/\bCTO\b\s*/g, '').trim();
+        s = s.replace(/^[^A-Z0-9]+/, ''); // remove hífen/espaço que sobrou no início
         if (s.startsWith('CTO') && s.length > 3) s = s.slice(3);
         const m = s.match(/^[A-Z]+/);
         const prefixo = m ? m[0] : '';
@@ -682,7 +699,7 @@
                 showToast('❌ CTO não encontrada na planilha');
             } else {
                 applyResumo(list[0]);
-                document.getElementById('ctoName').value = list[0].CTO;
+                document.getElementById('ctoName').value = padraoCTO(list[0].CTO);
                 save();
             }
         } catch (e) {
