@@ -167,12 +167,13 @@
 
         /* Port rows */
         .port-row {
-            display: flex; align-items: center; gap: 10px;
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
             padding: 12px 4px;
             border-bottom: 2px solid var(--border);
         }
         .port-row:last-child { border-bottom: none; }
         .port-label { font-size: 1.15rem; font-weight: 900; color: var(--blue); flex: 0 0 42px; }
+        .port-actions { display: flex; gap: 10px; flex-shrink: 0; }
         .port-input {
             flex: 1; min-width: 0;
             padding: 13px 14px;
@@ -182,6 +183,14 @@
             color: var(--text);
             font-size: 1rem; font-weight: 600;
             outline: none;
+        }
+        /* Telas estreitas: campo do PE ocupa a 1ª linha inteira,
+           botões vão para a 2ª linha (alinhados à direita) */
+        @media (max-width: 420px) {
+            .port-row { gap: 8px; }
+            .port-input { flex: 1 1 calc(100% - 60px); font-size: 1.05rem; }
+            .port-actions { margin-left: auto; gap: 8px; }
+            .port-btn { width: 48px; height: 48px; flex-basis: 48px; }
         }
         .port-input:focus { border-color: var(--blue); }
         /* PE duplicado em outra porta */
@@ -288,9 +297,11 @@
                     placeholder="PE" autocapitalize="characters" enterkeyhint="next"
                     oninput="updateData(${i}, this.value)"
                     onkeydown="handlePortKey(event, ${i})">
-                <button class="port-btn ${portsData[i-1]==='Sem ident.'?'active-warn':''}" id="btn-u-${i}" onclick="quick(${i},'Sem ident.')">?</button>
-                <button class="port-btn ${portsData[i-1]==='Defeito'?'active-danger':''}" id="btn-d-${i}" onclick="quick(${i},'Defeito')">!</button>
-                <button class="port-btn ${portsData[i-1]==='Livre'?'active-info':''}" id="btn-e-${i}" onclick="quick(${i},'Livre')">∞</button>
+                <div class="port-actions">
+                    <button class="port-btn ${portsData[i-1]==='Sem ident.'?'active-warn':''}" id="btn-u-${i}" onclick="quick(${i},'Sem ident.')">?</button>
+                    <button class="port-btn ${portsData[i-1]==='Defeito'?'active-danger':''}" id="btn-d-${i}" onclick="quick(${i},'Defeito')">!</button>
+                    <button class="port-btn ${portsData[i-1]==='Livre'?'active-info':''}" id="btn-e-${i}" onclick="quick(${i},'Livre')">∞</button>
+                </div>
             </div>`;
         }
         c.innerHTML = html;
