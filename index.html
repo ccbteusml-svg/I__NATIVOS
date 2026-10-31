@@ -165,18 +165,18 @@
         .btn-blue { background: var(--blue); }
         .btn-red { background: var(--red); flex: 0 0 72px; font-size: 1.4rem; padding: 16px 0; }
 
-        /* Port rows */
+        /* Port rows — tudo numa linha só, como o layout antigo */
         .port-row {
-            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            display: flex; align-items: center; gap: 8px;
             padding: 12px 4px;
             border-bottom: 2px solid var(--border);
         }
         .port-row:last-child { border-bottom: none; }
-        .port-label { font-size: 1.15rem; font-weight: 900; color: var(--blue); flex: 0 0 42px; }
-        .port-actions { display: flex; gap: 10px; flex-shrink: 0; }
+        .port-label { font-size: 1.15rem; font-weight: 900; color: var(--blue); flex: 0 0 38px; }
+        .port-actions { display: flex; gap: 6px; flex-shrink: 0; }
         .port-input {
             flex: 1; min-width: 0;
-            padding: 13px 14px;
+            padding: 13px 10px;
             border: 2px solid var(--border);
             border-radius: 12px;
             background: var(--bg);
@@ -184,19 +184,11 @@
             font-size: 1rem; font-weight: 600;
             outline: none;
         }
-        /* Telas estreitas: campo do PE ocupa a 1ª linha inteira,
-           botões vão para a 2ª linha (alinhados à direita) */
-        @media (max-width: 420px) {
-            .port-row { gap: 8px; }
-            .port-input { flex: 1 1 calc(100% - 60px); font-size: 1.05rem; }
-            .port-actions { margin-left: auto; gap: 8px; }
-            .port-btn { width: 48px; height: 48px; flex-basis: 48px; }
-        }
         .port-input:focus { border-color: var(--blue); }
         /* PE duplicado em outra porta */
         .port-input.dup { border-color: var(--red); background: rgba(229,72,77,.08); }
         .port-btn {
-            width: 52px; height: 52px; flex: 0 0 52px;
+            width: 46px; height: 46px; flex: 0 0 46px;
             border: 2px solid var(--border);
             border-radius: 12px;
             background: var(--btn-gray);
